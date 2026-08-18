@@ -106,6 +106,7 @@ function calcModel(cfg) {
 
   var days = [], months = [], switches = [];
   var prevCrop = null;
+  var boughtRape = 0, soldKern2 = 0;                  // накопительно, для сезонных лимитов
 
   /* вложенный капитал и % за деньги считаются в finance() по ячейкам B35:B41 листа «Ядро+масло» */
 
@@ -157,7 +158,8 @@ function calcModel(cfg) {
     var rapeNeed;
     if (isLast) {
       /* последний месяц: рапса берём ровно столько, сколько успеем сжечь после ядра */
-      var kernDays = O.intakeKern > 0 ? (stockKern + plannedKern) / O.intakeKern : 0;
+      /* в режиме «только рапс» ядро не отжимают — мощность под него не резервируем */
+      var kernDays = (P.rapeOnly || O.intakeKern <= 0) ? 0 : (stockKern + plannedKern) / O.intakeKern;
       var freeDays = Math.max(0, h.workDays - kernDays);
       rapeNeed = Math.max(0, freeDays * O.intakeRape - stRape);
     } else if (crop === 'rape') {
@@ -170,6 +172,8 @@ function calcModel(cfg) {
     } else {
       rapeNeed = 0;
     }
+    if (P.rapeLimit > 0) rapeNeed = Math.min(rapeNeed, Math.max(0, P.rapeLimit - boughtRape));
+    boughtRape += rapeNeed;
     var win = Math.min(P.buyWindow, h.workDays);
     /* в последний месяц закрывающая партия рапса приходит разом, чтобы переход
        с культуры на культуру был один, а не размазывался по окну закупа */
@@ -218,10 +222,11 @@ function calcModel(cfg) {
          Сверх вместимости отгружаем сразу, в последние сутки горизонта — весь остаток. */
       row.sellKern2 = 0; row.costKern2Sold = 0;
       var sellKern = function (want) {                      // отгрузка ядра 2/3 кат. на сторону
+        if (P.kern2Limit > 0) want = Math.min(want, Math.max(0, P.kern2Limit - soldKern2));
         var s2 = Math.min(stK2, want), s3 = Math.min(stK3, want - s2);
         if (s2 + s3 <= 0) return;
         var qK = stK2 + stK3, avg = qK > 0 ? valKern / qK : 0;
-        row.sellKern2 += s2 + s3;
+        row.sellKern2 += s2 + s3; soldKern2 += s2 + s3;
         row.costKern2Sold += (s2 + s3) * avg;
         valKern -= (s2 + s3) * avg;
         stK2 -= s2; stK3 -= s3;

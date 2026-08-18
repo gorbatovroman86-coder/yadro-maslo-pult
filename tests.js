@@ -348,6 +348,55 @@ var C = CONFIG, cap = m.capTotal;
     ' ₽/т с НДС; продажа излишка ' + (saleProfit / 1e6).toFixed(1) + ' против остановки ' + (base / 1e6).toFixed(1) + ' млн');
 })();
 
+/* --- 18. Точка разворота по ставке второго передела --- */
+(function () {
+  var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
+  var gross = C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
+    (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
+  var sell = C.prices.kern2.v / vg - C.freight.kern1.v / vs;
+  var flip = (gross - sell) * vs;
+  /* проверяем знак по обе стороны точки: чуть ниже — отжать выгоднее, чуть выше — продать */
+  var press = function (rate) { return gross - rate / vs; };
+  var ok = press(flip - 100) > sell && press(flip + 100) < sell && Math.abs(press(flip) - sell) < 0.01;
+  check('18', 'Точка разворота «отжать / продать» по ставке второго передела', ok,
+    'пульт, карточка «Цена ядра 2 кат.»',
+    'разворот при ставке ' + flip.toFixed(2) + ' ₽/т: ниже отжать (' + f(press(flip - 100)) +
+    ' против ' + f(sell) + '), выше продать (' + f(press(flip + 100)) + ' против ' + f(sell) + ')');
+})();
+
+/* --- 19. Сезонные лимиты закупа рапса и продажи ядра 2 кат. --- */
+(function () {
+  var bad = [], info = [];
+  [20000, 10000].forEach(function (L) {
+    var c = clone(CONFIG); c.policy.rapeOnly.v = 1; c.policy.kernStop.v = 0; c.policy.rapeBuffer.v = 0;
+    c.policy.rapeLimit.v = L;
+    var k = calcModel(c).kpi;
+    if (k.rapeBuy > L + 0.01) bad.push('рапс: закуплено ' + f(k.rapeBuy) + ' при лимите ' + f(L));
+    info.push('рапс ≤ ' + f(L) + ' → закуп ' + f(k.rapeBuy) + ', простой ' + f(k.idle) + ' т');
+  });
+  [12000, 4000].forEach(function (L) {
+    var c = clone(CONFIG); c.policy.rapeOnly.v = 1; c.policy.kernStop.v = 0; c.policy.rapeBuffer.v = 0;
+    c.policy.kern2Limit.v = L;
+    var k = calcModel(c).kpi;
+    if (k.sellKern2 > L + 0.01) bad.push('ядро 2 кат.: продано ' + f(k.sellKern2) + ' при лимите ' + f(L));
+    info.push('ядро ≤ ' + f(L) + ' → продано ' + f(k.sellKern2) + ', остаток ' + f(k.endKern2 + k.endKern3) + ' т');
+  });
+  check('19', 'Сезонные лимиты закупа и продажи соблюдаются', bad.length === 0,
+    'пульт, поля «Лимит закупа рапса» и «Лимит продажи ядра 2 кат.»',
+    bad.length ? bad.join('; ') : info.join('; '));
+})();
+
+/* --- 20. Режим «только рапс» загружает маслоцех полностью --- */
+(function () {
+  var c = clone(CONFIG); c.policy.rapeOnly.v = 1; c.policy.kernStop.v = 0; c.policy.rapeBuffer.v = 0;
+  var r = calcModel(c), k = r.kpi;
+  var full = CONFIG.oil.intakeRape.v * CONFIG.horizon.workDays.v * CONFIG.horizon.months.v;
+  var used = r.days.reduce(function (a, x) { return a + x.useRape; }, 0);
+  check('20', 'В режиме «только рапс» маслоцех загружен на всю мощность', Math.abs(used - full) < 0.01 && k.idle < 0.01,
+    'engine.js, план закупа рапса в последнем месяце',
+    'переработано ' + f(used) + ' из ' + f(full) + ' т мощности, простой ' + f(k.idle) + ' т');
+})();
+
 /* --- вывод --- */
 var pad = function (s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); };
 console.log('\nИНВАРИАНТЫ МОДЕЛИ «ЯДРО + МАСЛО»\n');

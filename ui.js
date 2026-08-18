@@ -258,66 +258,76 @@
     Object.keys(over).forEach(function (path) { var a = path.split('.'); c[a[0]][a[1]].v = over[path]; });
     try { return calcModel(c).kpi.profit; } catch (e) { return NaN; }
   }
+  var K2_RATES = [1500, 2500, 3500, 5000, 6500];
+  var K2_PRICES = [0, -0.1, -0.2, -0.3];
   function renderK2() {
-    var P0 = CONFIG.prices.kern2.v, mln = function (n) { return (n / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); };
-    var baseProfit = variantProfit({ 'policy.kernStop': CONFIG.policy.kernStop.v, 'policy.sellKern2': 0, 'policy.rapeOnly': 0 });
-    var rows = [0, -0.1, -0.2, -0.3].map(function (k) {
-      var price = P0 * (1 + k);
-      return {
-        k: k, price: price,
-        sale: variantProfit({ 'policy.kernStop': 0, 'policy.sellKern2': 1, 'policy.rapeOnly': 0, 'prices.kern2': price }),
-        only: variantProfit({ 'policy.kernStop': 0, 'policy.sellKern2': 0, 'policy.rapeOnly': 1, 'policy.rapeBuffer': 0, 'prices.kern2': price })
-      };
+    var P0 = CONFIG.prices.kern2.v, rate0 = CONFIG.oil.procCost.v;
+    var mln = function (n) { return (n / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); };
+    /* база сравнения — остановка обрушки; от цены П/Ф не зависит, от ставки зависит */
+    var base = {}, grid = {};
+    K2_RATES.forEach(function (rt) {
+      base[rt] = variantProfit({ 'oil.procCost': rt, 'policy.sellKern2': 0, 'policy.rapeOnly': 0 });
+      grid[rt] = K2_PRICES.map(function (k) {
+        return variantProfit({ 'oil.procCost': rt, 'policy.kernStop': 0, 'policy.sellKern2': 1,
+          'policy.rapeOnly': 0, 'prices.kern2': P0 * (1 + k) }) - base[rt];
+      });
     });
-    /* цена, при которой вариант сравнивается с остановкой обрушки */
-    var breakEven = function (mode) {
-      var lo = 0, hi = P0 * 2;
-      for (var i = 0; i < 40; i++) {
-        var m = (lo + hi) / 2;
-        var pr = mode === 'sale'
-          ? variantProfit({ 'policy.kernStop': 0, 'policy.sellKern2': 1, 'policy.rapeOnly': 0, 'prices.kern2': m })
-          : variantProfit({ 'policy.kernStop': 0, 'policy.sellKern2': 0, 'policy.rapeOnly': 1, 'policy.rapeBuffer': 0, 'prices.kern2': m });
-        if (pr < baseProfit) lo = m; else hi = m;
-      }
-      return (lo + hi) / 2;
-    };
-    var beSale = breakEven('sale'), beOnly = breakEven('only');
-    var cell = function (v) {
-      var d = v - baseProfit;
-      return '<td>' + mln(v) + '</td><td class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '+' : '') + mln(d) + '</td>';
-    };
+    var flip = flipRate(), parity = parityPrice();
+    var head = '<tr><th>Цена П/Ф</th><th>₽/т</th>' +
+      K2_RATES.map(function (rt) {
+        return '<th' + (rt === rate0 ? ' style="color:var(--kern-d)"' : '') + '>' + fmt(rt) + (rt === rate0 ? ' ●' : '') + '</th>';
+      }).join('') + '</tr>';
+    var body = K2_PRICES.map(function (k, i) {
+      return '<tr' + (k === 0 ? ' class="base"' : '') + '><td>' + (k === 0 ? 'базовая' : (k * 100).toFixed(0) + ' %') +
+        '</td><td>' + fmt(P0 * (1 + k)) + '</td>' +
+        K2_RATES.map(function (rt) {
+          var d = grid[rt][i];
+          return '<td class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '+' : '') + mln(d) + '</td>';
+        }).join('') + '</tr>';
+    }).join('');
+    var parityRow = '<tr class="par"><td colspan="2">паритетная цена П/Ф</td>' +
+      K2_RATES.map(function (rt) { return '<td>' + fmt(parityAt(rt)) + '</td>'; }).join('') + '</tr>';
+
     $('k2card').innerHTML =
       '<div class="k2head"><h3>Цена ядра 2 кат. (П/Ф)</h3><span class="k2warn">не подтверждена</span>' +
-      '<span class="desc" style="font-size:12px;color:var(--ink2)">лист «Ядро »!B2 — другой сценарий выходов, ' +
+      '<span style="font-size:12px;color:var(--ink2)">лист «Ядро »!B2 — другой сценарий выходов, ' +
       'в листе «Ядро+масло» цена П/Ф пуста</span></div>' +
       '<div class="k2body"><div>' +
       '<div class="k2price"><input type="number" id="k2price" step="500" value="' + Math.round(P0 * 100) / 100 + '"><small>₽/т с НДС</small></div>' +
-      '<div class="k2note">Тонну ядра выгоднее <b>продать</b>, пока цена выше <b>' + fmt(parityPrice()) + ' ₽/т</b>: ' +
-      'отжать даёт ' + fmt(pressValue()) + ' ₽/т, продать — ' + fmt(P0 / CONFIG.finance.vatGoods.v - CONFIG.freight.kern1.v / CONFIG.finance.vatService.v) + ' ₽/т.</div>' +
+      '<div class="k2note">При текущей ставке второго передела <b>' + fmt(rate0) + ' ₽/т</b> тонну ядра выгоднее ' +
+      (P0 > parity ? '<b>продать</b>' : '<b>отжать</b>') + ': паритет <b>' + fmt(parity) + ' ₽/т с НДС</b>.<br>' +
+      'Обрушка в это сравнение не входит — она понесена в обеих ветках.<br><br>' +
+      '<b>Точка разворота по ставке: ' + fmt(flip) + ' ₽/т.</b> Ниже неё выгоднее отжимать, выше — продавать.</div>' +
       '</div><div>' +
-      '<table class="k2tbl"><thead><tr><th>Цена П/Ф</th><th>₽/т</th><th>Продажа излишка</th><th>к базе</th>' +
-      '<th>Только рапс</th><th>к базе</th></tr></thead><tbody>' +
-      rows.map(function (r) {
-        return '<tr' + (r.k === 0 ? ' class="base"' : '') + '><td>' + (r.k === 0 ? 'базовая' : (r.k * 100).toFixed(0) + ' %') +
-          '</td><td>' + fmt(r.price) + '</td>' + cell(r.sale) + cell(r.only) + '</tr>';
-      }).join('') + '</tbody></table>' +
-      '<div class="k2note">База сравнения — остановка обрушки: <b>' + mln(baseProfit) + ' млн ₽</b>, от цены П/Ф не зависит. ' +
-      'Преимущество исчезает при цене <b>' + fmt(beSale) + ' ₽/т</b> для продажи излишка (' +
-      ((beSale / P0 - 1) * 100).toFixed(0) + ' %) и <b>' + fmt(beOnly) + ' ₽/т</b> для варианта «только рапс» (' +
-      ((beOnly / P0 - 1) * 100).toFixed(0) + ' %).</div></div></div>';
+      '<div class="k2sub">Выгода продажи излишка против остановки обрушки, млн ₽ · строки — цена П/Ф, столбцы — ставка второго передела</div>' +
+      '<table class="k2tbl"><thead>' + head + '</thead><tbody>' + body + parityRow + '</tbody></table>' +
+      '<div class="k2note">Зелёное — продавать выгоднее, красное — отжимать. ● отмечена действующая ставка.</div>' +
+      '</div></div>';
     $('k2price').addEventListener('change', function () {
       var n = parseFloat(this.value); if (!isFinite(n) || n < 0) { this.value = CONFIG.prices.kern2.v; return; }
       CONFIG.prices.kern2.v = n; syncRail(); recalc();
     });
+  }
+  /* ставка второго передела, при которой отжать = продать */
+  function flipRate() {
+    var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
+    var gross = C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
+      (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
+    var sell = C.prices.kern2.v / vg - C.freight.kern1.v / vs;
+    return (gross - sell) * vs;
+  }
+  function parityAt(rate) {
+    var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
+    var press = C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
+      rate / vs - (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
+    return (press + C.freight.kern1.v / vs) * vg;
   }
   function pressValue() {
     var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
     return C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
       C.oil.procCost.v / vs - (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
   }
-  function parityPrice() {
-    return (pressValue() + CONFIG.freight.kern1.v / CONFIG.finance.vatService.v) * CONFIG.finance.vatGoods.v;
-  }
+  function parityPrice() { return parityAt(CONFIG.oil.procCost.v); }
 
   /* ---------------- график загрузки ---------------- */
   var GEO = { W: 900, H: 320, pl: 58, pr: 14, pt: 14, pb: 30 };
