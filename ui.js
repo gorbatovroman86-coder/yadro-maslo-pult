@@ -241,7 +241,9 @@
       { c: 'raps', l: 'Прибыль лежит в остатках', v: (k.endValue / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }), u: 'млн ₽',
         d: (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата' },
       { c: 'raps', l: 'Обрушка остановлена', v: fmt(C.policy.kernStop.v), u: 'сут',
-        d: 'не переработано ' + fmt(C.policy.kernStop.v * C.kernel.intake.v) + ' т семечки' }
+        d: 'непереработано ' + fmt(C.policy.kernStop.v * C.kernel.intake.v) + ' т семечки' },
+      { c: 'raps', l: 'Ядро 2 кат. на сторону', v: fmt(k.sellKern2), u: 'т',
+        d: C.policy.sellKern2.v ? 'по ' + fmt(C.prices.kern2.v) + ' ₽/т' : 'продажа выключена' }
     ];
     $('peakbar').innerHTML = items.map(function (i) {
       return '<div class="pb ' + i.c + '"><div class="l">' + i.l + '</div>' +
@@ -503,9 +505,9 @@
   /* строки БДР — порядок и названия как в листе «Ядро+масло» (строки 9–33).
      u: t — тонны, m — тыс. руб, p — доля. c: sum — итоговая строка, sub — расшифровка. */
   var BDR_ROWS = [
-    { l: 'Продажа (тонн), в т.ч.', u: 't', c: 'sum', f: function (m) { return m.kern1 + m.oilSun + m.mealSun + m.oilRape + m.mealRape; } },
+    { l: 'Продажа (тонн), в т.ч.', u: 't', c: 'sum', f: function (m) { return m.kern1 + m.sellKern2 + m.oilSun + m.mealSun + m.oilRape + m.mealRape; } },
     { l: 'Ядро 1 кат.', u: 't', c: 'sub', f: function (m) { return m.kern1; } },
-    { l: 'Ядро 2 кат. (П/Ф) — весь на масло, не продаём', u: 't', c: 'sub', f: function () { return 0; } },
+    { l: 'Ядро 2 кат. (П/Ф) — излишек на сторону', u: 't', c: 'sub', f: function (m) { return m.sellKern2; } },
     { l: 'Ядро 3 кат.', u: 't', c: 'sub', f: function () { return 0; } },
     { l: 'Лузга', u: 't', c: 'sub', f: function () { return 0; } },
     { l: 'Масло подсолнечное', u: 't', c: 'sub', f: function (m) { return m.oilSun; } },
@@ -514,6 +516,7 @@
     { l: 'Жмых рапсовый', u: 't', c: 'sub', f: function (m) { return m.mealRape; } },
     { l: 'Выручка (тыс. руб), в т.ч.', u: 'm', c: 'sum', f: function (m) { return m.revenue / 1000; } },
     { l: 'Ядро 1 кат.', u: 'm', c: 'sub', f: function (m) { return m.revKern1 / 1000; } },
+    { l: 'Ядро 2 кат. (П/Ф)', u: 'm', c: 'sub', f: function (m) { return m.revKern2 / 1000; } },
     { l: 'Масло подсолнечное', u: 'm', c: 'sub', f: function (m) { return m.revSunOil / 1000; } },
     { l: 'Жмых подсолнечный', u: 'm', c: 'sub', f: function (m) { return m.revSunMeal / 1000; } },
     { l: 'Масло рапсовое', u: 'm', c: 'sub', f: function (m) { return m.revRapeOil / 1000; } },
@@ -521,10 +524,12 @@
     { l: 'Лузга', u: 'm', c: 'sub', f: function (m) { return m.revHusk / 1000; } },
     { l: 'Себестоимость (тыс. руб)', u: 'm', c: 'sum', f: function (m) { return m.cost / 1000; } },
     { l: 'Списано ядро 1 кат. (закуп семечки + обрушка)', u: 'm', c: 'sub', f: function (m) { return m.costKern1 / 1000; } },
+    { l: 'Списано ядро 2 кат., проданное на сторону', u: 'm', c: 'sub', f: function (m) { return m.costKern2Sold / 1000; } },
     { l: 'Списано сырьё маслоцеха (ядро 2 кат. / рапс)', u: 'm', c: 'sub', f: function (m) { return m.costOilRaw / 1000; } },
     { l: 'Переработка на маслоцехе', u: 'm', c: 'sub', f: function (m) { return m.costProcOil / 1000; } },
     { l: 'Отгрузка (тыс. руб)', u: 'm', c: 'sum', f: function (m) { return m.freight / 1000; } },
     { l: 'Ядро 1 кат.', u: 'm', c: 'sub', f: function (m) { return m.frKern1 / 1000; } },
+    { l: 'Ядро 2 кат. (П/Ф)', u: 'm', c: 'sub', f: function (m) { return m.frKern2 / 1000; } },
     { l: 'Масло (флекситанк)', u: 'm', c: 'sub', f: function (m) { return m.frOil / 1000; } },
     { l: 'Жмых', u: 'm', c: 'sub', f: function (m) { return m.frMeal / 1000; } },
     { l: '% пользование деньгами (тыс. руб)', u: 'm', c: '', f: function (m) { return m.interest / 1000; } },
@@ -551,7 +556,10 @@
           'прочие расходы ' + mln(other) + ' млн ₽' },
       { c: 'stock', l: 'Прибыль в остатках', n: mln(k.endValue), u: 'млн ₽',
         sub: 'ядро ' + fmt(k.endKern2) + ' т · рапс ' + fmt(k.endRape) + ' т<br><b>' +
-          (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата не в деньгах</b>' }
+          (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата не в деньгах</b>' },
+      { c: 'cost', l: 'Закрытие сезона', n: fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v), u: 'т',
+        sub: 'непереработано семечки<br>обрушка стоит <b>' + fmt(CONFIG.policy.kernStop.v) + ' сут</b>' +
+          (CONFIG.policy.sellKern2.v ? '<br>продано ядра 2 кат. ' + fmt(k.sellKern2) + ' т' : '') }
     ];
     $('finHead').innerHTML = head.map(function (h) {
       return '<div class="hl ' + h.c + '"><div class="l">' + h.l + '</div>' +
@@ -586,7 +594,12 @@
       'остаётся активом (' + mln(k.endValue) + ' млн ₽) и в себестоимость сезона не попадает. ' +
       'Затраты завода ядра ложатся на товарный выход пропорционально массе (лузга затрат не несёт): ' +
       'тонна ядра 2 кат. на складе стоит <b>' + fmt(perTon) + ' ₽</b>, сверху маслоцех добавляет ' +
-      fmt(CONFIG.oil.procCost.v / CONFIG.finance.vatService.v) + ' ₽/т.';
+      fmt(CONFIG.oil.procCost.v / CONFIG.finance.vatService.v) + ' ₽/т. ' +
+      '<b>Закрытие сезона:</b> остатки выработаны в ноль, для этого обрушка стоит <b>' +
+      fmt(CONFIG.policy.kernStop.v) + ' сут</b> и <b>' + fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v) +
+      ' т</b> семечки не переработано — это перенос в следующий сезон, а не потеря.' +
+      (CONFIG.policy.sellKern2.v ? ' Излишек ядра 2 кат. продаётся на сторону по <b>' +
+        fmt(CONFIG.prices.kern2.v) + ' ₽/т</b> (цена с листа «Ядро », требует подтверждения).' : '');
   }
 
   function bdrSheets() {

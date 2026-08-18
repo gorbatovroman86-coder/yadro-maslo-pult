@@ -180,7 +180,8 @@ function calcModel(cfg) {
       seedBuy: 0, rapeBuy: 0, oilIntake: 0, oilFromKern: 0, oilFromRape: 0,
       oilSun: 0, mealSun: 0, oilRape: 0, mealRape: 0, oilLoss: 0,
       idle: 0, overPeak: 0, overDays: 0, mixDays: 0, isLast: isLast, kernDaysIn: kernDaysIn,
-      costKern1: 0, costOilRaw: 0                 // списанная стоимость: проданное ядро 1 кат. и сырьё маслоцеха
+      costKern1: 0, costOilRaw: 0,                // списанная стоимость: проданное ядро 1 кат. и сырьё маслоцеха
+      sellKern2: 0, costKern2Sold: 0              // ядро 2 кат., проданное на сторону
     };
 
     for (var d = 1; d <= h.workDays; d++) {
@@ -210,6 +211,20 @@ function calcModel(cfg) {
       row.unitKern = goodOut > 0 ? plantCost / goodOut : 0;
       row.costKern1 = row.kern1 * row.unitKern;
       valKern += (row.kern2 + row.kern3) * row.unitKern;
+
+      /* 2а-бис. Продажа излишка ядра 2 кат. на сторону (если режим включён).
+         Сверх вместимости отгружаем сразу, в последние сутки горизонта — весь остаток. */
+      row.sellKern2 = 0; row.costKern2Sold = 0;
+      var sellKern = function (want) {                      // отгрузка ядра 2/3 кат. на сторону
+        var s2 = Math.min(stK2, want), s3 = Math.min(stK3, want - s2);
+        if (s2 + s3 <= 0) return;
+        var qK = stK2 + stK3, avg = qK > 0 ? valKern / qK : 0;
+        row.sellKern2 += s2 + s3;
+        row.costKern2Sold += (s2 + s3) * avg;
+        valKern -= (s2 + s3) * avg;
+        stK2 -= s2; stK3 -= s3;
+      };
+      if (P.sellKern2) sellKern(Math.max(0, (stK2 + stK3 + stRape) - capTotal));   // сверх вместимости
 
       /* 2б. ПИК СУТОК: склад загружен максимально после прихода и до переработки —
              именно этот объём должен физически поместиться. */
@@ -261,6 +276,9 @@ function calcModel(cfg) {
       row.oilLoss = inKern * O.kernLoss + row.useRape * O.rapeLoss;
       row.oilIntake = inKern + row.useRape;
 
+      /* 4б. в последние сутки горизонта остаток ядра уходит на сторону — уже после переработки */
+      if (P.sellKern2 && row.i === totalDays - 1) sellKern(stK2 + stK3);
+
       /* 5. остатки на конец суток */
       row.stKern2 = stK2; row.stKern3 = stK3; row.stRape = stRape;
       row.stTotal = stK2 + stK3 + stRape;
@@ -288,6 +306,7 @@ function calcModel(cfg) {
       M.oilLoss += row.oilLoss; M.idle += row.idle;
       if (row.mixed) M.mixDays = (M.mixDays || 0) + 1;
       M.costKern1 += row.costKern1; M.costOilRaw += row.costOilRaw;
+      M.sellKern2 += row.sellKern2; M.costKern2Sold += row.costKern2Sold;
 
       days.push(row);
     }
@@ -307,20 +326,22 @@ function finance(M, c) {
   var PR = c.prices, FR = c.freight, F = c.finance, K = c.kernel, O = c.oil;
 
   M.revKern1 = M.kern1 * PR.kern1 / F.vatGoods;
+  M.revKern2 = M.sellKern2 * PR.kern2 / F.vatGoods;
   M.revSunOil = M.oilSun * PR.sunOil / F.vatGoods;
   M.revSunMeal = M.mealSun * PR.sunMeal / F.vatGoods;
   M.revRapeOil = M.oilRape * PR.rapeOil / F.vatGoods;
   M.revRapeMeal = M.mealRape * PR.rapeMeal / F.vatGoods;
   M.revHusk = M.husk * PR.husk / F.vatGoods;
-  M.revenue = M.revKern1 + M.revSunOil + M.revSunMeal + M.revRapeOil + M.revRapeMeal + M.revHusk;
+  M.revenue = M.revKern1 + M.revKern2 + M.revSunOil + M.revSunMeal + M.revRapeOil + M.revRapeMeal + M.revHusk;
 
   M.costProcOil = M.oilIntake * O.procCost / F.vatService;
-  M.cost = M.costKern1 + M.costOilRaw + M.costProcOil;              // costKern1/costOilRaw уже включают переработку ядра
+  M.cost = M.costKern1 + M.costKern2Sold + M.costOilRaw + M.costProcOil;              // costKern1/costOilRaw уже включают переработку ядра
 
   M.frKern1 = M.kern1 * FR.kern1 / F.vatService;
+  M.frKern2 = M.sellKern2 * FR.kern1 / F.vatService;   // тариф «ЯДРО + П/Ф + 3 кат», H3
   M.frOil = (M.oilSun + M.oilRape) * FR.oil / F.vatService;
   M.frMeal = (M.mealSun + M.mealRape) * FR.meal / F.vatService;
-  M.freight = M.frKern1 + M.frOil + M.frMeal;
+  M.freight = M.frKern1 + M.frKern2 + M.frOil + M.frMeal;
 
   /* вложенный капитал — 1:1 по ячейкам листа «Ядро+масло»:
      B35 запас сырья = месячный закуп сырья по ценам с НДС (в файле N1×L1×D1);
@@ -346,6 +367,8 @@ function kpi(days, months, c) {
     rapeBuy: sum(months, function (m) { return m.rapeBuy; }),
     kern1: sum(months, function (m) { return m.kern1; }),
     kern2: sum(months, function (m) { return m.kern2; }),
+    sellKern2: sum(months, function (m) { return m.sellKern2; }),
+    seedIdle: 0,
     husk: sum(months, function (m) { return m.husk; }),
     oilSun: sum(months, function (m) { return m.oilSun; }),
     mealSun: sum(months, function (m) { return m.mealSun; }),

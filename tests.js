@@ -273,13 +273,46 @@ var C = CONFIG, cap = m.capTotal;
   var procSeed = m.days.reduce(function (a, r) { return a + r.seedIn; }, 0);
   var usedRape = m.days.reduce(function (a, r) { return a + r.useRape; }, 0);
   var kernIn = m.days.reduce(function (a, r) { return a + r.kern2 + r.kern3; }, 0) + S.startKern2.v + S.startKern3.v;
-  var kernUsed = m.days.reduce(function (a, r) { return a + r.useKern2 + r.useKern3; }, 0);
+  var kernUsed = m.days.reduce(function (a, r) { return a + r.useKern2 + r.useKern3 + r.sellKern2; }, 0);
   var d1 = Math.abs(inSeed - procSeed), d2 = Math.abs(inRape - usedRape), d3 = Math.abs(kernIn - kernUsed);
   check('13', 'Всё закупленное переработано или продано, остатка нет', d1 < 0.01 && d2 < 0.01 && d3 < 0.01,
     'пульт, таблица «Потоки»',
     'семечка: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
     'рапс: закуп ' + f(inRape) + ' = переработано ' + f(usedRape) + ' (Δ ' + d2.toFixed(4) + '); ' +
-    'ядро: на склад ' + f(kernIn) + ' = в маслоцех ' + f(kernUsed) + ' (Δ ' + d3.toFixed(4) + ')');
+    'ядро: на склад ' + f(kernIn) + ' = в маслоцех и на сторону ' + f(kernUsed) + ' (Δ ' + d3.toFixed(4) + ')');
+})();
+
+/* --- 14. Все три режима закрытия сезона дают нулевой остаток --- */
+(function () {
+  var modes = [
+    { n: 'остановка обрушки (по умолчанию)', stop: CONFIG.policy.kernStop.v, sell: 0 },
+    { n: 'продажа излишка', stop: 0, sell: 1 },
+    { n: 'остановка + продажа', stop: CONFIG.policy.kernStop.v, sell: 1 }
+  ];
+  var bad = [], info = [];
+  modes.forEach(function (mo) {
+    var c = clone(CONFIG); c.policy.kernStop.v = mo.stop; c.policy.sellKern2.v = mo.sell;
+    var r = calcModel(c), k = r.kpi;
+    var rest = Math.abs(k.endKern2) + Math.abs(k.endKern3) + Math.abs(k.endRape);
+    if (rest > 0.01) bad.push(mo.n + ': остаток ' + rest.toFixed(3) + ' т');
+    if (k.idle > 0.01) bad.push(mo.n + ': простой ' + k.idle.toFixed(1) + ' т');
+    info.push(mo.n + ' → ' + (k.profit / 1e6).toFixed(1) + ' млн, продано ядра 2 кат. ' + f(k.sellKern2) + ' т');
+  });
+  check('14', 'Любой режим закрытия сезона обнуляет остаток и не даёт простоя', bad.length === 0,
+    'пульт, поля «Остановка обрушки» и «Излишек ядра 2 кат. продаём»',
+    bad.length ? bad.join('; ') : info.join('; '));
+})();
+
+/* --- 15. Продажа ядра 2 кат. считается по цене из CONFIG --- */
+(function () {
+  var c = clone(CONFIG); c.policy.kernStop.v = 0; c.policy.sellKern2.v = 1;
+  var r = calcModel(c), k = r.kpi;
+  var rev = r.months.reduce(function (a, m) { return a + m.revKern2; }, 0);
+  var want = k.sellKern2 * CONFIG.prices.kern2.v / CONFIG.finance.vatGoods.v;
+  check('15', 'Выручка от ядра 2 кат. = тонны × цена ÷ НДС', Math.abs(rev - want) < 1,
+    'вкладка БДР, строка «Ядро 2 кат. (П/Ф)»',
+    f(k.sellKern2) + ' т × ' + CONFIG.prices.kern2.v + ' ÷ ' + CONFIG.finance.vatGoods.v +
+    ' = ' + (rev / 1e6).toFixed(2) + ' млн руб (цена с листа «Ядро », требует подтверждения)');
 })();
 
 /* --- вывод --- */
