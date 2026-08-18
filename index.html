@@ -119,6 +119,13 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 .cal-idle{margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--bad-bg);border:1px solid var(--bad);
   color:#8A2A20;font-size:12px;font-weight:500}
 .cal-idle:empty{display:none}
+.cal-tail{margin-top:8px;padding:7px 10px;border-radius:7px;background:var(--panel2);border:1px solid var(--line);
+  color:var(--ink2);font-size:12px}
+.cal-tail:empty{display:none}
+.cal-tail b{font-family:'IBM Plex Mono';color:var(--ink)}
+.mchip.mix{background:linear-gradient(135deg,var(--kern) 55%,var(--raps) 55%);border-color:var(--kern-d)}
+.mchip.mix .mn,.mchip.mix .mt{color:#fff}
+.mchip.none{background:var(--panel2);border-style:dashed}
 
 .warn{margin-bottom:12px;padding:10px 14px;font-size:12.5px;border-radius:10px;background:var(--bad-bg);border:1px solid var(--bad);color:#8A2A20;font-size:13px;font-weight:500}
 .warn b{font-family:'Chakra Petch'}
@@ -298,6 +305,7 @@ table.daily td.bad{color:var(--bad);font-weight:600}
         <div class="calendar" id="calendar"></div>
         <div class="cal-sum" id="calSum"></div>
         <div class="cal-idle" id="calIdle"></div>
+        <div class="cal-tail" id="calTail"></div>
       </div>
     </div>
 
@@ -381,9 +389,9 @@ table.daily td.bad{color:var(--bad);font-weight:600}
   </main>
 </div>
 
-<script src="config.js?v=13"></script>
-<script src="engine.js?v=13"></script>
-<script src="xlsxlite.js?v=13"></script>
-<script src="ui.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="engine.js?v=14"></script>
+<script src="xlsxlite.js?v=14"></script>
+<script src="ui.js?v=14"></script>
 </body>
 </html>

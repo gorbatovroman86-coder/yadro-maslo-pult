@@ -247,7 +247,7 @@ function calcModel(cfg) {
       row.pkKern = stK2 + stK3; row.pkRape = stRape; row.pkTotal = row.pkKern + row.pkRape;
 
       /* 3. завод масла — одна культура в моменте, больше склада взять не может */
-      row.useKern2 = 0; row.useKern3 = 0; row.useRape = 0; row.idle = 0; row.mixed = 0;
+      row.useKern2 = 0; row.useKern3 = 0; row.useRape = 0; row.idle = 0; row.mixed = 0; row.tailIdle = 0;
       /* Порядок культур в сутках. Обычный месяц — только культура месяца (вариант Б)
          либо с добором рапсом (вариант А). ПОСЛЕДНИЙ месяц горизонта — единственное
          исключение: дожимаем культуру месяца в ноль и без паузы переходим на вторую. */
@@ -327,6 +327,24 @@ function calcModel(cfg) {
       days.push(row);
     }
 
+    /* фактическая культура месяца — по тому, что реально переработали,
+       а не по решению правила переключения на 1-е число */
+    var gotK = M.oilFromKern > EPS_T, gotR = M.oilFromRape > EPS_T;
+    M.cropFact = gotK && gotR ? 'mix' : gotK ? 'kern' : gotR ? 'rape' : 'none';
+
+    /* разводим намеренно срезанный хвост и настоящую нехватку сырья */
+    M.tailIdle = 0;
+    if (M.tailCut > EPS_T) {
+      var budget = M.tailCut;
+      for (var z = days.length - h.workDays; z < days.length; z++) {
+        var take = Math.min(days[z].idle, budget);
+        days[z].tailIdle = take; days[z].idle -= take; budget -= take;
+        if (budget <= EPS_T) break;
+      }
+      M.tailIdle = M.tailCut - budget;
+      M.idle -= M.tailIdle;
+    }
+
     finance(M, c);
     months.push(M);
   }
@@ -398,8 +416,11 @@ function kpi(days, months, c) {
     interest: sum(months, function (m) { return m.interest; }),
     tax: sum(months, function (m) { return m.tax; }),
     profit: sum(months, function (m) { return m.profit; }),
-    kernMonths: months.filter(function (m) { return m.crop === 'kern'; }).length,
-    rapeMonths: months.filter(function (m) { return m.crop === 'rape'; }).length,
+    kernMonths: months.filter(function (m) { return m.cropFact === 'kern'; }).length,
+    rapeMonths: months.filter(function (m) { return m.cropFact === 'rape'; }).length,
+    mixMonths: months.filter(function (m) { return m.cropFact === 'mix'; }).length,
+    idleMonths: months.filter(function (m) { return m.cropFact === 'none'; }).length,
+    tailIdle: sum(months, function (m) { return m.tailIdle || 0; }),
     overPeak: Math.max.apply(null, days.map(function (d) { return d.over; })),
     overDays: days.filter(function (d) { return d.over > 0; }).length,
     peakStock: Math.max.apply(null, days.map(function (d) { return d.pkTotal; })),
