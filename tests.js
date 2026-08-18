@@ -315,6 +315,39 @@ var C = CONFIG, cap = m.capTotal;
     ' = ' + (rev / 1e6).toFixed(2) + ' млн руб (цена с листа «Ядро », требует подтверждения)');
 })();
 
+/* --- 16. Режим «только рапс»: переключений нет, ядро целиком на сторону --- */
+(function () {
+  var c = clone(CONFIG); c.policy.rapeOnly.v = 1; c.policy.kernStop.v = 0; c.policy.rapeBuffer.v = 0;
+  var r = calcModel(c), k = r.kpi;
+  var kernIn = r.days.reduce(function (a, x) { return a + x.kern2 + x.kern3; }, 0);
+  var used = r.days.reduce(function (a, x) { return a + x.useKern2 + x.useKern3; }, 0);
+  var ok = k.kernMonths === 0 && used < 0.01 && Math.abs(k.sellKern2 - kernIn) < 0.01 &&
+    Math.abs(k.endKern2) < 0.01 && Math.abs(k.endRape) < 0.01;
+  check('16', 'Режим «только рапс»: ядро не жмут, продают целиком, остаток ноль', ok,
+    'пульт, поле «Только рапс: ядро 2 кат. целиком на сторону»',
+    'месяцев на семечке ' + k.kernMonths + ', ядра в маслоцех ' + used.toFixed(2) + ' т, продано ' +
+    f(k.sellKern2) + ' из ' + f(kernIn) + ' т, остаток ' + k.endKern2.toFixed(3) + ' т');
+})();
+
+/* --- 17. Паритет цены ядра 2 кат.: отжать против продать --- */
+(function () {
+  var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
+  var press = C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
+    C.oil.procCost.v / vs - (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
+  var sell = C.prices.kern2.v / vg - C.freight.kern1.v / vs;
+  var parity = (press + C.freight.kern1.v / vs) * vg;
+  /* проверяем, что знак разницы согласован с моделью: если продавать выгоднее,
+     режим продажи излишка обязан давать результат не хуже остановки обрушки */
+  var base = calcModel(clone(CONFIG)).kpi.profit;
+  var cSale = clone(CONFIG); cSale.policy.kernStop.v = 0; cSale.policy.sellKern2.v = 1;
+  var saleProfit = calcModel(cSale).kpi.profit;
+  var ok = (sell > press) === (saleProfit > base);
+  check('17', 'Выгода продажи ядра 2 кат. согласована с моделью', ok,
+    'пульт, карточка «Цена ядра 2 кат.»',
+    'отжать ' + f(press) + ' ₽/т, продать ' + f(sell) + ' ₽/т, паритет ' + f(parity) +
+    ' ₽/т с НДС; продажа излишка ' + (saleProfit / 1e6).toFixed(1) + ' против остановки ' + (base / 1e6).toFixed(1) + ' млн');
+})();
+
 /* --- вывод --- */
 var pad = function (s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); };
 console.log('\nИНВАРИАНТЫ МОДЕЛИ «ЯДРО + МАСЛО»\n');

@@ -140,6 +140,8 @@ function calcModel(cfg) {
       }
       minStock = low;
     }
+    /* режим «только рапс»: переключений нет, ядро 2 кат. целиком уходит на сторону */
+    if (P.rapeOnly) { feasible = false; failDay = 0; minStock = 0; }
     var crop = feasible ? 'kern' : 'rape';
     if (crop !== prevCrop) {
       switches.push({
@@ -224,7 +226,8 @@ function calcModel(cfg) {
         valKern -= (s2 + s3) * avg;
         stK2 -= s2; stK3 -= s3;
       };
-      if (P.sellKern2) sellKern(Math.max(0, (stK2 + stK3 + stRape) - capTotal));   // сверх вместимости
+      if (P.rapeOnly) sellKern(stK2 + stK3);                                        // ядро не жмём — продаём как произвели
+      else if (P.sellKern2) sellKern(Math.max(0, (stK2 + stK3 + stRape) - capTotal)); // сверх вместимости
 
       /* 2б. ПИК СУТОК: склад загружен максимально после прихода и до переработки —
              именно этот объём должен физически поместиться. */
@@ -277,7 +280,7 @@ function calcModel(cfg) {
       row.oilIntake = inKern + row.useRape;
 
       /* 4б. в последние сутки горизонта остаток ядра уходит на сторону — уже после переработки */
-      if (P.sellKern2 && row.i === totalDays - 1) sellKern(stK2 + stK3);
+      if ((P.sellKern2 || P.rapeOnly) && row.i === totalDays - 1) sellKern(stK2 + stK3);
 
       /* 5. остатки на конец суток */
       row.stKern2 = stK2; row.stKern3 = stK3; row.stRape = stRape;
@@ -368,7 +371,7 @@ function kpi(days, months, c) {
     kern1: sum(months, function (m) { return m.kern1; }),
     kern2: sum(months, function (m) { return m.kern2; }),
     sellKern2: sum(months, function (m) { return m.sellKern2; }),
-    seedIdle: 0,
+    capitalAvg: months.reduce(function (a, m) { return a + m.capital; }, 0) / Math.max(1, months.length),
     husk: sum(months, function (m) { return m.husk; }),
     oilSun: sum(months, function (m) { return m.oilSun; }),
     mealSun: sum(months, function (m) { return m.mealSun; }),
