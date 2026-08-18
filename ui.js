@@ -180,18 +180,8 @@
   }
   function hideErr() { var el = $('cfgErr'); if (el) el.style.display = 'none'; }
 
-  /* ---------------- страховой запас и правило запуска ---------------- */
-  function renderTz() {
-    var sd = CONFIG.policy.safetyDays.v, wd = CONFIG.horizon.workDays.v, cap = CONFIG.oil.intakeKern.v;
-    $('safeBig').value = sd; $('safeRange').value = sd;
-    var perDay = CONFIG.kernel.intake.v * (CONFIG.kernel.yKern2.v + CONFIG.kernel.yKern3.v);
-    var first = model.switches.filter(function (s) { return s.to === 'kern'; })[0];
-    $('tzInfo').innerHTML =
-      'Нужно на месяц: <b>' + fmt(cap) + ' × ' + fmt(wd) + (sd > 0 ? ' + ' + fmt(cap * sd) : '') +
-      ' = ' + fmt(cap * (wd + sd)) + ' т</b><br>' +
-      'Приход ядра: <b>' + fmt1(perDay) + ' т/сут</b> = <b>' + fmt(perDay * wd) + ' т/мес</b><br>' +
-      'Первый запуск на семечке: <b>' + (first ? first.date : 'не наступает') + '</b>';
-  }
+  /* ---------------- поле страхового запаса переехало в панель параметров ---------------- */
+  function renderTz() { }
 
   /* ---------------- календарь месяцев ---------------- */
   function renderCalendar() {
@@ -616,18 +606,14 @@
 
     var perTon = model.days[0].unitKern;
     $('finNote').innerHTML =
-      '<b>Как читать.</b> Строки и порядок — как в листе «Ядро+масло» файла БДР. Выручка и сырьё делятся на 1,1 (НДС товара), ' +
-      'переработка и отгрузка — на 1,2 (НДС услуг), налог на прибыль ' + (CONFIG.finance.profitTax.v * 100).toFixed(0) + ' %, при убытке не начисляется. ' +
-      '<b>Отличие от файла:</b> затраты на сырьё списываются в месяц переработки, а не закупа, поэтому переходящий остаток складов ' +
-      'остаётся активом (' + mln(k.endValue) + ' млн ₽) и в себестоимость сезона не попадает. ' +
-      'Затраты завода ядра ложатся на товарный выход пропорционально массе (лузга затрат не несёт): ' +
-      'тонна ядра 2 кат. на складе стоит <b>' + fmt(perTon) + ' ₽</b>, сверху маслоцех добавляет ' +
-      fmt(CONFIG.oil.procCost.v / CONFIG.finance.vatService.v) + ' ₽/т. ' +
-      '<b>Закрытие сезона:</b> остатки выработаны в ноль, для этого обрушка стоит <b>' +
-      fmt(CONFIG.policy.kernStop.v) + ' сут</b> и <b>' + fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v) +
-      ' т</b> семечки не переработано — это перенос в следующий сезон, а не потеря.' +
-      (CONFIG.policy.sellKern2.v ? ' Излишек ядра 2 кат. продаётся на сторону по <b>' +
-        fmt(CONFIG.prices.kern2.v) + ' ₽/т</b> (цена с листа «Ядро », требует подтверждения).' : '');
+      '<b>Это расчёт пульта, а не выгрузка из файла.</b> Структура строк повторяет лист «Ядро+масло», ' +
+      'но итог с ним не совпадает и совпадать не должен: пульт считает сезон с накоплением, переключением ' +
+      'культур и вторым переделом на маслоцехе, которого в формуле листа нет.<br>' +
+      'Тонна ядра 2 кат. стоит <b>' + fmt(perTon) + ' ₽</b>. Сезон закрывается в ноль: обрушка стоит <b>' +
+      fmt(CONFIG.policy.kernStop.v) + ' сут</b>, <b>' + fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v) +
+      ' т</b> семечки — перенос в следующий сезон, не потеря.<br>' +
+      '<span style="color:var(--ink3)">Методика, сценарный анализ и чувствительность — в README и в листе ' +
+      '«Сценарный анализ» выгрузки.</span>';
   }
 
   function bdrSheets() {
@@ -774,13 +760,6 @@
   function init() {
     buildRail();
     lastGood = snapshot();
-    $('safeBig').addEventListener('input', function () {
-      var n = parseFloat(this.value); if (!isFinite(n) || n < 0) return;
-      CONFIG.policy.safetyDays.v = n; syncRail(); recalc();
-    });
-    $('safeRange').addEventListener('input', function () {
-      CONFIG.policy.safetyDays.v = +this.value; syncRail(); recalc();
-    });
     $('dayRange').addEventListener('input', function () { curDay = +this.value; renderDay(); moveMark(); });
     $('expBtn').addEventListener('click', doExport);
     if ($('expBdr')) $('expBdr').addEventListener('click', doExportBdr);

@@ -87,6 +87,7 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 
 /* верхняя полоса: ТЗ + календарь */
 .ctrl-strip{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:14px;margin-bottom:14px}
+.ctrl-strip.one{grid-template-columns:minmax(0,1fr)}
 @media(max-width:900px){.ctrl-strip{grid-template-columns:1fr}}
 .cs-tz{background:linear-gradient(135deg,#4E7E9B,#33586F);border-radius:11px;padding:13px 16px;color:#fff;box-shadow:var(--sh)}
 .cs-tz .pe-lab{font-family:'Chakra Petch';font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700;opacity:.92}
@@ -288,13 +289,7 @@ table.daily td.bad{color:var(--bad);font-weight:600}
     </div>
     <div class="tabpane" id="tab-pult">
 
-    <div class="ctrl-strip">
-      <div class="cs-tz">
-        <div class="pe-lab">Страховой запас ядра</div>
-        <div class="pe-input"><input type="number" id="safeBig" min="0" step="1"><small>дн</small></div>
-        <input type="range" id="safeRange" min="0" max="30" step="1">
-        <div class="pe-info" id="tzInfo"></div>
-      </div>
+    <div class="ctrl-strip one">
       <div class="cs-cal">
         <div class="cal-head">
           <div class="pin-h">Календарь работы завода масла</div>
@@ -337,13 +332,13 @@ table.daily td.bad{color:var(--bad);font-weight:600}
       </div>
     </div>
 
-    <div class="sect open" id="flowSect">
+    <div class="sect" id="flowSect">
       <div class="sect-h tog" data-sect="flowSect"><h3><span class="chev">▸</span> Потоки: что пришло, что накопилось, что переработали</h3>
         <span class="desc">по месяцам, тонн · приход сырья и накопление разведены</span></div>
       <div class="foldable"><div class="card card-pad"><div class="xscroll"><table class="flowtbl" id="flowTbl"></table></div></div></div>
     </div>
 
-    <div class="sect open" id="monSect">
+    <div class="sect" id="monSect">
       <div class="sect-h tog" data-sect="monSect"><h3><span class="chev">▸</span> Накопительно по месяцам</h3>
         <span class="desc">остаток на конец месяца и нарастающий итог</span></div>
       <div class="foldable"><div class="card card-pad"><div class="months" id="months"></div></div></div>
@@ -376,19 +371,19 @@ table.daily td.bad{color:var(--bad);font-weight:600}
         </div>
         <div class="card card-pad"><div class="xscroll"><table class="bdrtbl" id="bdrTbl"></table></div></div>
       </div>
-      <div class="sect">
-        <div class="sect-h"><h3>Оборотный капитал</h3>
-          <span class="desc">ячейки B35–B41 листа: запас сырья, КЗ, ДЗ, вложенный капитал, проценты за год и за месяц</span></div>
-        <div class="card card-pad"><div class="xscroll"><table class="captbl" id="capTbl"></table></div></div>
+      <div class="sect" id="capSect">
+        <div class="sect-h tog" data-sect="capSect"><h3><span class="chev">▸</span> Оборотный капитал</h3>
+          <span class="desc">ячейки B35–B41 листа</span></div>
+        <div class="foldable"><div class="card card-pad"><div class="xscroll"><table class="captbl" id="capTbl"></table></div></div></div>
       </div>
       <div class="verdict" id="finNote"></div>
     </div>
   </main>
 </div>
 
-<script src="config.js?v=8"></script>
-<script src="engine.js?v=8"></script>
-<script src="xlsxlite.js?v=8"></script>
-<script src="ui.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="engine.js?v=9"></script>
+<script src="xlsxlite.js?v=9"></script>
+<script src="ui.js?v=9"></script>
 </body>
 </html>
