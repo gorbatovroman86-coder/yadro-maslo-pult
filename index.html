@@ -31,7 +31,7 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 .hdr .cycle{margin-left:auto;display:flex;gap:8px;font-family:'IBM Plex Mono';font-size:11px}
 .hdr .cycle span{padding:4px 10px;border-radius:4px;color:#fff;font-weight:500}
 
-.shell{display:grid;grid-template-columns:224px minmax(0,1fr)}
+.shell{display:grid;grid-template-columns:268px minmax(0,1fr)}
 @media(max-width:980px){.shell{grid-template-columns:1fr}}
 .rail{background:var(--panel);border-right:1px solid var(--line);padding:16px 14px;position:sticky;top:74px;max-height:calc(100vh - 74px);overflow-y:auto}
 @media(max-width:980px){.rail{position:static;max-height:none;border-right:none;border-bottom:1px solid var(--line)}}
@@ -40,14 +40,19 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 .rgrp h4 .chev{transition:transform .15s;font-size:.9em}
 .rgrp.open h4 .chev{transform:rotate(90deg)}
 .rgrp .body{display:none}.rgrp.open .body{display:block}
-.rgrp label{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink2);margin-bottom:6px;cursor:help}
-.rgrp label input[type=number],.rgrp label select{margin-left:auto;width:86px;font-family:'IBM Plex Mono';font-size:12px;font-weight:600;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--ink);text-align:right}
-.rgrp label input[type=checkbox]{margin-left:auto;width:16px;height:16px}
-.rgrp label.derived{color:var(--ink3)}
-.rgrp label.derived input{background:#EDEFEA;color:var(--ink2);border-style:dashed;cursor:not-allowed}
+.rgrp .body{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px 9px;padding-top:2px}
+.rgrp .fld{display:flex;flex-direction:column;gap:2px;cursor:help;min-width:0}
+.rgrp .fld.wide{grid-column:1 / -1}
+.rgrp .fl{font-size:10px;line-height:1.25;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rgrp .fi{display:flex;align-items:center;gap:3px}
+.rgrp .fi input[type=number],.rgrp .fi select{width:100%;min-width:0;font-family:'IBM Plex Mono';font-size:11.5px;font-weight:600;
+  padding:3px 5px;border:1px solid var(--line);border-radius:5px;background:var(--panel2);color:var(--ink);text-align:right}
+.rgrp .fi input[type=checkbox]{width:15px;height:15px;margin:2px 0}
+.rgrp .fi i{font-style:normal;font-size:9px;color:var(--ink3);white-space:nowrap;flex-shrink:0}
+.rgrp .fi input:focus,.rgrp .fi select:focus{outline:2px solid var(--kern);outline-offset:1px;background:#fff}
+.rgrp .fld.derived .fl{color:var(--ink3)}
+.rgrp .fld.derived input{background:#EDEFEA;color:var(--ink2);border-style:dashed;cursor:not-allowed}
 #cfgErr{white-space:pre-line}
-.rgrp label input:focus,.rgrp label select:focus{outline:2px solid var(--kern);outline-offset:1px;background:#fff}
-.rgrp label i{font-style:normal;font-size:10px;color:var(--ink3);width:26px;text-align:left}
 .rreset{width:100%;font-family:'Chakra Petch';font-weight:600;font-size:11.5px;padding:6px;border:1px solid var(--line);border-radius:7px;background:var(--panel2);color:var(--ink2);cursor:pointer}
 .rreset:hover{background:#fff;border-color:var(--kern);color:var(--kern-d)}
 
@@ -63,6 +68,22 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--sh)}
 .card-pad{padding:18px 20px}
 .xscroll{overflow-x:auto;min-width:0}
+
+/* вкладки */
+.tabs{display:flex;gap:6px;margin-bottom:16px;border-bottom:1.5px solid var(--line)}
+.tab{font-family:'Chakra Petch';font-weight:600;font-size:13.5px;letter-spacing:.03em;text-transform:uppercase;
+  padding:9px 20px;border:none;background:none;color:var(--ink3);cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-1.5px}
+.tab:hover{color:var(--ink2)}
+.tab.is-on{color:var(--kern-d);border-bottom-color:var(--kern)}
+/* блок оборотного капитала */
+.captbl{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;min-width:820px}
+.captbl th{font-family:'Chakra Petch';font-weight:600;font-size:11px;color:var(--ink2);text-transform:uppercase;
+  padding:8px 10px;text-align:right;border-bottom:1.5px solid var(--line);white-space:nowrap}
+.captbl th:first-child{text-align:left}
+.captbl td{padding:6px 10px;text-align:right;border-bottom:1px solid var(--line2);font-family:'IBM Plex Mono';white-space:nowrap}
+.captbl td:first-child{text-align:left;font-family:'Hanken Grotesk';color:var(--ink2)}
+.captbl tr.tot td{font-weight:700;color:var(--ink);background:rgba(78,126,155,.07);border-top:1.5px solid var(--line)}
+.captbl td.cell{background:var(--panel2)}
 
 /* верхняя полоса: ТЗ + календарь */
 .ctrl-strip{display:grid;grid-template-columns:minmax(0,320px) minmax(0,1fr);gap:14px;margin-bottom:14px}
@@ -243,6 +264,13 @@ table.daily td.bad{color:var(--bad);font-weight:600}
   <aside class="rail" id="rail"></aside>
 
   <main class="main">
+    <div class="warn" id="cfgErr" style="display:none"></div>
+    <div class="tabs">
+      <button class="tab is-on" data-tab="pult">Пульт</button>
+      <button class="tab" data-tab="bdr">БДР</button>
+    </div>
+    <div class="tabpane" id="tab-pult">
+
     <div class="ctrl-strip">
       <div class="cs-tz">
         <div class="pe-lab">Страховой запас ядра</div>
@@ -260,7 +288,6 @@ table.daily td.bad{color:var(--bad);font-weight:600}
       </div>
     </div>
 
-    <div class="warn" id="cfgErr" style="display:none"></div>
     <div class="warn" id="warn" style="display:none"></div>
     <div class="peakbar" id="peakbar"></div>
 
@@ -298,16 +325,6 @@ table.daily td.bad{color:var(--bad);font-weight:600}
       <div class="foldable"><div class="card card-pad"><div class="xscroll"><table class="flowtbl" id="flowTbl"></table></div></div></div>
     </div>
 
-    <div class="sect open" id="finSect">
-      <div class="sect-h tog" data-sect="finSect"><h3><span class="chev">▸</span> Финансовый результат</h3>
-        <span class="desc">методика БДР: товар ÷1,1, услуги ÷1,2 · сырьё списывается в месяц переработки</span></div>
-      <div class="foldable">
-        <div class="headline" id="finHead"></div>
-        <div class="card card-pad"><div class="xscroll"><table class="bdrtbl" id="bdrTbl"></table></div></div>
-        <div class="verdict" id="finNote"></div>
-      </div>
-    </div>
-
     <div class="sect open" id="monSect">
       <div class="sect-h tog" data-sect="monSect"><h3><span class="chev">▸</span> Накопительно по месяцам</h3>
         <span class="desc">остаток на конец месяца и нарастающий итог</span></div>
@@ -329,12 +346,31 @@ table.daily td.bad{color:var(--bad);font-weight:600}
     </div>
 
     <div class="foot" id="foot"></div>
+    </div>
+    <div class="tabpane" id="tab-bdr" hidden>
+      <div class="headline" id="finHead"></div>
+      <div class="sect">
+        <div class="sect-h"><h3>БДР по месяцам</h3>
+          <span class="desc">структура листа «Ядро+масло»: продажи в тоннах → выручка → себестоимость → отгрузка → проценты → налог → результат</span></div>
+        <div class="export-row">
+          <button id="expBdr">Скачать БДР в .xlsx</button>
+          <span class="cal-hint">два листа: БДР и оборотный капитал</span>
+        </div>
+        <div class="card card-pad"><div class="xscroll"><table class="bdrtbl" id="bdrTbl"></table></div></div>
+      </div>
+      <div class="sect">
+        <div class="sect-h"><h3>Оборотный капитал</h3>
+          <span class="desc">ячейки B35–B41 листа: запас сырья, КЗ, ДЗ, вложенный капитал, проценты за год и за месяц</span></div>
+        <div class="card card-pad"><div class="xscroll"><table class="captbl" id="capTbl"></table></div></div>
+      </div>
+      <div class="verdict" id="finNote"></div>
+    </div>
   </main>
 </div>
 
-<script src="config.js?v=3"></script>
-<script src="engine.js?v=3"></script>
-<script src="xlsxlite.js?v=3"></script>
-<script src="ui.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="engine.js?v=4"></script>
+<script src="xlsxlite.js?v=4"></script>
+<script src="ui.js?v=4"></script>
 </body>
 </html>

@@ -110,6 +110,10 @@ function calcModel(cfg) {
   /* вложенный капитал и % за деньги считаются в finance() по ячейкам B35:B41 листа «Ядро+масло» */
 
   var kernDaily = K.intake * (K.yKern2 + K.yKern3);   // плановый приход ядра 2+3 кат. в сутки
+  var totalDays = h.months * h.workDays;
+  var kernLastDay = totalDays - P.kernStop;           // с этого дня (0-based) обрушка стоит
+  var kernWorks = function (i) { return i < kernLastDay; };
+  var lastMonth = h.months - 1;
 
   for (var m = 0; m < h.months; m++) {
     /* --- решение о культуре месяца: только на 1-е число ---
@@ -117,7 +121,11 @@ function calcModel(cfg) {
        Запускаемся на семечке, если доступного хватает на полный месяц работы
        маслоцеха плюс страховой запас, И если маслоцех обеспечен КАЖДЫЕ сутки месяца. */
     var stockKern = stK2 + stK3;
-    var planned = kernDaily * h.workDays;
+    var isLast = (m === lastMonth);
+    var kernDaysIn = 0;                                    // рабочих суток обрушки в этом месяце
+    for (var q = 0; q < h.workDays; q++) if (kernWorks(m * h.workDays + q)) kernDaysIn++;
+    var plannedKern = kernDaily * kernDaysIn;
+    var planned = plannedKern;
     var available = stockKern + planned;
     var required = O.intakeKern * (h.workDays + P.safetyDays);
     var feasible = available >= required - EPS_T;
@@ -125,7 +133,7 @@ function calcModel(cfg) {
     if (feasible) {
       var probe = stockKern, low = available;
       for (var t = 1; t <= h.workDays; t++) {
-        probe += kernDaily;                            // приход суток
+        probe += (kernWorks(m * h.workDays + t - 1) ? kernDaily : 0);   // приход суток
         if (probe < O.intakeKern - EPS_T) { feasible = false; failDay = t; break; }
         probe -= O.intakeKern;                         // переработка суток
         if (probe < low) low = probe;
@@ -142,10 +150,15 @@ function calcModel(cfg) {
     prevCrop = crop;
 
     /* --- план закупа на месяц --- */
-    var seedNeed = K.intake * h.workDays;                  // семечка на завод ядра, работает всегда
+    var seedNeed = K.intake * kernDaysIn;                  // семечка только на те сутки, когда обрушка работает
     var rapeMonth = O.intakeRape * h.workDays;             // месячная потребность завода масла
     var rapeNeed;
-    if (crop === 'rape') {
+    if (isLast) {
+      /* последний месяц: рапса берём ровно столько, сколько успеем сжечь после ядра */
+      var kernDays = O.intakeKern > 0 ? (stockKern + plannedKern) / O.intakeKern : 0;
+      var freeDays = Math.max(0, h.workDays - kernDays);
+      rapeNeed = Math.max(0, freeDays * O.intakeRape - stRape);
+    } else if (crop === 'rape') {
       rapeNeed = Math.max(0, rapeMonth - stRape);          // докуп до месячной потребности
     } else if (P.rapeBuffer) {
       /* месяц семечки: страховой рапс на свободное место складов.
@@ -156,6 +169,9 @@ function calcModel(cfg) {
       rapeNeed = 0;
     }
     var win = Math.min(P.buyWindow, h.workDays);
+    /* в последний месяц закрывающая партия рапса приходит разом, чтобы переход
+       с культуры на культуру был один, а не размазывался по окну закупа */
+    var winRape = isLast ? 1 : win;
 
     var M = {
       idx: m, label: monthLabel(h, m), crop: crop, need: required, stockAtStart: stockKern,
@@ -163,7 +179,7 @@ function calcModel(cfg) {
       seedIn: 0, kern1: 0, kern2: 0, kern3: 0, husk: 0, kernLoss: 0,
       seedBuy: 0, rapeBuy: 0, oilIntake: 0, oilFromKern: 0, oilFromRape: 0,
       oilSun: 0, mealSun: 0, oilRape: 0, mealRape: 0, oilLoss: 0,
-      idle: 0, overPeak: 0, overDays: 0,
+      idle: 0, overPeak: 0, overDays: 0, mixDays: 0, isLast: isLast, kernDaysIn: kernDaysIn,
       costKern1: 0, costOilRaw: 0                 // списанная стоимость: проданное ядро 1 кат. и сырьё маслоцеха
     };
 
@@ -172,17 +188,18 @@ function calcModel(cfg) {
 
       /* 1. закуп (равными долями в окно закупа) */
       row.seedBuy = d <= win ? seedNeed / win : 0;
-      row.rapeBuy = d <= win ? rapeNeed / win : 0;
+      row.rapeBuy = d <= winRape ? rapeNeed / winRape : 0;
       stRape += row.rapeBuy;
       valRape += row.rapeBuy * c.prices.buyRape / c.finance.vatGoods;
 
-      /* 2. завод ядра — работает всегда */
-      row.seedIn = K.intake;
-      row.kern1 = K.intake * K.yKern1;      // 1 кат. — сразу на продажу, на склад НЕ заводим
-      row.kern2 = K.intake * K.yKern2;      // 2 кат. — на склад
-      row.kern3 = K.intake * K.yKern3;      // 3 кат. — на склад
-      row.husk = K.intake * K.yHusk;        // лузга — отход, не продаём
-      row.kernLoss = K.intake * K.yLoss;
+      /* 2. завод ядра — работает, пока не наступила остановка перед концом горизонта */
+      row.kernOn = kernWorks(row.i);
+      row.seedIn = row.kernOn ? K.intake : 0;
+      row.kern1 = row.seedIn * K.yKern1;      // 1 кат. — сразу на продажу, на склад НЕ заводим
+      row.kern2 = row.seedIn * K.yKern2;      // 2 кат. — на склад
+      row.kern3 = row.seedIn * K.yKern3;      // 3 кат. — на склад
+      row.husk = row.seedIn * K.yHusk;        // лузга — отход, не продаём
+      row.kernLoss = row.seedIn * K.yLoss;
       stK2 += row.kern2;
       stK3 += row.kern3;
 
@@ -199,19 +216,33 @@ function calcModel(cfg) {
       row.pkKern = stK2 + stK3; row.pkRape = stRape; row.pkTotal = row.pkKern + row.pkRape;
 
       /* 3. завод масла — одна культура в моменте, больше склада взять не может */
-      row.useKern2 = 0; row.useKern3 = 0; row.useRape = 0; row.idle = 0;
-      if (crop === 'kern') {
-        var want = O.intakeKern;
-        row.useKern2 = Math.min(want, stK2); want -= row.useKern2;
-        row.useKern3 = Math.min(want, stK3); want -= row.useKern3;
-        if (want > 0) {                                     // ядро кончилось раньше конца месяца
-          if (P.emptyMonth === 'A') { row.useRape = Math.min(want, stRape); want -= row.useRape; }
-          row.idle = want;                                  // вариант Б либо рапса тоже нет
+      row.useKern2 = 0; row.useKern3 = 0; row.useRape = 0; row.idle = 0; row.mixed = 0;
+      /* Порядок культур в сутках. Обычный месяц — только культура месяца (вариант Б)
+         либо с добором рапсом (вариант А). ПОСЛЕДНИЙ месяц горизонта — единственное
+         исключение: дожимаем культуру месяца в ноль и без паузы переходим на вторую. */
+      var queue = (isLast || P.emptyMonth === 'A')
+        ? (crop === 'kern' ? ['kern', 'rape'] : ['rape', 'kern'])
+        : [crop];
+      var free = 1;                                         // свободная доля суточной мощности
+      queue.forEach(function (c) {
+        if (free <= 0) return;
+        if (c === 'kern') {
+          if (O.intakeKern <= 0) return;
+          var want = O.intakeKern * free, had = want;
+          var t2 = Math.min(want, stK2); row.useKern2 += t2; want -= t2;
+          var t3 = Math.min(want, stK3); row.useKern3 += t3; want -= t3;
+          free -= (had - want) / O.intakeKern;
+        } else {
+          if (O.intakeRape <= 0) return;
+          var wantR = O.intakeRape * free;
+          var tr = Math.min(wantR, stRape); row.useRape += tr;
+          free -= tr / O.intakeRape;
         }
-      } else {
-        row.useRape = Math.min(O.intakeRape, stRape);
-        row.idle = O.intakeRape - row.useRape;
-      }
+      });
+      row.idle = free * (crop === 'kern' ? O.intakeKern : O.intakeRape);
+      var gotK = row.useKern2 + row.useKern3 > EPS_T, gotR = row.useRape > EPS_T;
+      row.mixed = (gotK && gotR) ? 1 : 0;                   // сутки перехода с культуры на культуру
+      row.useCrop = gotK && gotR ? 'both' : gotK ? 'kern' : gotR ? 'rape' : 'none';
       /* списание стоимости сырья маслоцеха по средней */
       var qK = stK2 + stK3, qR = stRape;
       var avgK = qK > 0 ? valKern / qK : 0, avgR = qR > 0 ? valRape / qR : 0;
@@ -255,6 +286,7 @@ function calcModel(cfg) {
       M.oilSun += row.oilSun; M.mealSun += row.mealSun;
       M.oilRape += row.oilRape; M.mealRape += row.mealRape;
       M.oilLoss += row.oilLoss; M.idle += row.idle;
+      if (row.mixed) M.mixDays = (M.mixDays || 0) + 1;
       M.costKern1 += row.costKern1; M.costOilRaw += row.costOilRaw;
 
       days.push(row);

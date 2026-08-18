@@ -5,17 +5,68 @@
   var fmt1 = function (n) { return n.toLocaleString('ru-RU', { maximumFractionDigits: 1 }); };
   var esc = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
 
-  var GROUPS = [
-    { key: 'kernel', title: 'Завод ядра', open: true },
-    { key: 'oil', title: 'Завод масла', open: true },
-    { key: 'storage', title: 'Склады', open: true },
-    { key: 'policy', title: 'Правила работы', open: true },
-    { key: 'horizon', title: 'Горизонт', open: false },
-    { key: 'priceParts', title: 'Цены: составляющие', open: false },
-    { key: 'prices', title: 'Цены, ₽/т с НДС', open: false },
-    { key: 'freight', title: 'Отгрузка, ₽/т с НДС', open: false },
-    { key: 'finance', title: 'Финансы', open: false }
+  /* Группы рельсы. Наверху — то, что реально крутят; расчётные поля собраны отдельно. */
+  var RAIL = [
+    { title: 'Основные', open: true, f: ['kernel.intake', 'oil.intakeKern', 'oil.intakeRape', 'policy.safetyDays',
+        'oil.procCost', 'kernel.procCost', 'storage.capacity', 'storage.count'] },
+    { title: 'Выходы завода ядра', f: ['kernel.yKern1', 'kernel.yKern3', 'kernel.yHusk', 'kernel.yLoss'] },
+    { title: 'Выходы завода масла', f: ['oil.kernOil', 'oil.kernTotal', 'oil.rapeOil', 'oil.rapeTotal'] },
+    { title: 'Склады и правила', f: ['storage.startKern2', 'storage.startKern3', 'storage.startRape',
+        'policy.buyWindow', 'policy.rapeBuffer', 'policy.emptyMonth'] },
+    { title: 'Горизонт', f: ['horizon.startYear', 'horizon.startMonth', 'horizon.months', 'horizon.workDays'] },
+    { title: 'Цены: составляющие', f: ['priceParts.cnyRate', 'priceParts.coefOn', 'priceParts.coefNum', 'priceParts.coefDen',
+        'priceParts.kern1Cny', 'priceParts.kern1Grade', 'priceParts.kern1Log', 'priceParts.sunOilCny',
+        'priceParts.sunOilLog1', 'priceParts.sunOilLog2', 'priceParts.sunMealBase', 'priceParts.rapeOilCny',
+        'priceParts.rapeOilLog', 'priceParts.rapeMealCny', 'priceParts.rapeMealLog',
+        'prices.buySeed', 'prices.buyRape', 'prices.husk'] },
+    { title: 'Отгрузка', f: ['freight.kern1', 'freight.oil', 'freight.meal'] },
+    { title: 'Финансы', f: ['finance.vatGoods', 'finance.vatService', 'finance.moneyRate', 'finance.stockMonths',
+        'finance.apMonths', 'finance.arMonths', 'finance.monthsYear', 'finance.profitTax'] },
+    { title: 'Расчётные значения', f: ['kernel.yKern2', 'oil.kernMeal', 'oil.kernLoss', 'oil.rapeMeal', 'oil.rapeLoss',
+        'prices.kern1', 'prices.sunOil', 'prices.sunMeal', 'prices.rapeOil', 'prices.rapeMeal'] }
   ];
+  /* короткие подписи для узкой панели; полное название и источник — в подсказке */
+  var SHORT = {
+    'kernel.intake': 'Заход семечки', 'kernel.procCost': 'Переработка ядра',
+    'kernel.yKern1': 'Ядро 1 кат.', 'kernel.yKern2': 'Ядро 2 кат. (расчёт)', 'kernel.yKern3': 'Ядро 3 кат.',
+    'kernel.yHusk': 'Лузга', 'kernel.yLoss': 'Потери',
+    'oil.intakeRape': 'Маслоцех на рапсе', 'oil.intakeKern': 'Маслоцех на ядре', 'oil.procCost': 'Переработка масла',
+    'oil.kernOil': 'Масло из ядра', 'oil.kernTotal': 'Товарный выход ядра', 'oil.kernMeal': 'Жмых подсолн.',
+    'oil.kernLoss': 'Потери на ядре', 'oil.rapeOil': 'Масло из рапса', 'oil.rapeTotal': 'Товарный выход рапса',
+    'oil.rapeMeal': 'Жмых рапсовый', 'oil.rapeLoss': 'Потери на рапсе',
+    'storage.count': 'Складов', 'storage.capacity': 'Ёмкость склада',
+    'storage.startKern2': 'Остаток ядра 2', 'storage.startKern3': 'Остаток ядра 3', 'storage.startRape': 'Остаток рапса',
+    'policy.safetyDays': 'Страховой запас', 'policy.buyWindow': 'Окно закупа',
+    'policy.emptyMonth': 'Ядро кончилось', 'policy.rapeBuffer': 'Страховой рапс',
+    'horizon.startYear': 'Год старта', 'horizon.startMonth': 'Месяц старта',
+    'horizon.months': 'Месяцев', 'horizon.workDays': 'Рабочих суток',
+    'priceParts.cnyRate': 'Курс юаня', 'priceParts.coefOn': 'Коэффициент вкл',
+    'priceParts.coefNum': 'Коэф. числитель', 'priceParts.coefDen': 'Коэф. знаменатель',
+    'priceParts.kern1Cny': 'Ядро 1 кат., ¥', 'priceParts.kern1Grade': 'Ядро 1 кат., качество',
+    'priceParts.kern1Log': 'Ядро 1 кат., логистика', 'priceParts.sunOilCny': 'Масло подс., ¥',
+    'priceParts.sunOilLog1': 'Масло подс., лог. 1', 'priceParts.sunOilLog2': 'Масло подс., лог. 2',
+    'priceParts.sunMealBase': 'Жмых подс., база', 'priceParts.rapeOilCny': 'Масло рапс., ¥',
+    'priceParts.rapeOilLog': 'Масло рапс., логистика', 'priceParts.rapeMealCny': 'Жмых рапс., ¥',
+    'priceParts.rapeMealLog': 'Жмых рапс., логистика',
+    'prices.buySeed': 'Закуп семечки', 'prices.buyRape': 'Закуп рапса', 'prices.husk': 'Продажа лузги',
+    'prices.kern1': 'Ядро 1 кат.', 'prices.sunOil': 'Масло подсолн.', 'prices.sunMeal': 'Жмых подсолн.',
+    'prices.rapeOil': 'Масло рапсовое', 'prices.rapeMeal': 'Жмых рапсовый',
+    'freight.kern1': 'Ядро 1 кат.', 'freight.oil': 'Масло', 'freight.meal': 'Жмых',
+    'finance.vatGoods': 'НДС товар', 'finance.vatService': 'НДС услуги', 'finance.moneyRate': '% за деньги',
+    'finance.stockMonths': 'Запас сырья', 'finance.apMonths': 'КЗ', 'finance.arMonths': 'ДЗ',
+    'finance.monthsYear': 'Месяцев в году', 'finance.profitTax': 'Налог на прибыль'
+  };
+  var GROUP_TITLES = {
+    horizon: 'Горизонт', kernel: 'Завод ядра', oil: 'Завод масла', storage: 'Склады', policy: 'Правила работы',
+    priceParts: 'Цены: составляющие', prices: 'Цены, ₽/т с НДС', freight: 'Отгрузка, ₽/т с НДС', finance: 'Финансы'
+  };
+  function param(path) { var a = path.split('.'); return CONFIG[a[0]] && CONFIG[a[0]][a[1]]; }
+  function eachParam(fn) {
+    Object.keys(CONFIG).forEach(function (g) {
+      if (!CONFIG[g] || typeof CONFIG[g] !== 'object') return;
+      Object.keys(CONFIG[g]).forEach(function (k) { if (CONFIG[g][k] && CONFIG[g][k].label) fn(g, k, CONFIG[g][k]); });
+    });
+  }
   var STEP = { 'доля': 0.01, 'коэф': 0.01, 'год': 0.005, '₽/т': 100, 'т': 100, 'т/сут': 5, 'мес': 0.5 };
 
   var DEFAULTS = JSON.parse(JSON.stringify(CONFIG));
@@ -24,23 +75,25 @@
   /* ---------------- рельса параметров ---------------- */
   function buildRail() {
     var html = '';
-    GROUPS.forEach(function (g) {
-      var grp = CONFIG[g.key]; if (!grp) return;
-      html += '<div class="rgrp' + (g.open ? ' open' : '') + '" data-grp="' + g.key + '">' +
-        '<h4><span class="chev">▸</span>' + g.title + '</h4><div class="body">';
-      Object.keys(grp).forEach(function (k) {
-        var p = grp[k], id = 'p_' + g.key + '_' + k, ctl;
+    RAIL.forEach(function (g, gi) {
+      html += '<div class="rgrp' + (g.open ? ' open' : '') + '"><h4><span class="chev">▸</span>' + g.title +
+        '</h4><div class="body">';
+      g.f.forEach(function (path) {
+        var p = param(path); if (!p) return;
+        var id = 'p_' + path.replace('.', '_'), ctl, wide = '';
         if (p.u === 'А/Б') {
-          ctl = '<select id="' + id + '"><option value="A"' + (p.v === 'A' ? ' selected' : '') + '>А — рапсом</option>' +
+          wide = ' wide';
+          ctl = '<select id="' + id + '"><option value="A"' + (p.v === 'A' ? ' selected' : '') + '>А — добить рапсом</option>' +
             '<option value="Б"' + (p.v === 'Б' ? ' selected' : '') + '>Б — простой</option></select>';
         } else if (p.u === '0/1') {
           ctl = '<input type="checkbox" id="' + id + '"' + (p.v ? ' checked' : '') + '>';
         } else {
           ctl = '<input type="number" id="' + id + '" value="' + fmtVal(p) + '" step="' + (STEP[p.u] || 1) + '"' +
-            (p.d ? ' readonly tabindex="-1"' : '') + '><i>' + esc(p.u) + '</i>';
+            (p.d ? ' readonly tabindex="-1"' : '') + '>' + (p.u ? '<i>' + esc(p.u) + '</i>' : '');
         }
-        html += '<label class="' + (p.d ? 'derived' : '') + '" title="' + (p.d ? 'Расчётное поле. ' : '') +
-          'Источник: ' + esc(p.src) + '"><span>' + esc(p.label) + '</span>' + ctl + '</label>';
+        html += '<label class="fld' + wide + (p.d ? ' derived' : '') + '" title="' + (p.d ? 'Расчётное поле. ' : '') +
+          esc(p.label) + '\nИсточник: ' + esc(p.src) + '"><span class="fl">' + esc(SHORT[path] || p.label) +
+          '</span><span class="fi">' + ctl + '</span></label>';
       });
       html += '</div></div>';
     });
@@ -50,12 +103,11 @@
     $('rail').querySelectorAll('.rgrp h4').forEach(function (h) {
       h.addEventListener('click', function () { h.parentNode.classList.toggle('open'); });
     });
-    GROUPS.forEach(function (g) {
-      var grp = CONFIG[g.key]; if (!grp) return;
-      Object.keys(grp).forEach(function (k) {
-        var el = $('p_' + g.key + '_' + k); if (!el || CONFIG[g.key][k].d) return;
+    RAIL.forEach(function (g) {
+      g.f.forEach(function (path) {
+        var p = param(path); if (!p || p.d) return;
+        var el = $('p_' + path.replace('.', '_')); if (!el) return;
         el.addEventListener('change', function () {
-          var p = CONFIG[g.key][k];
           if (el.type === 'checkbox') p.v = el.checked ? 1 : 0;
           else if (el.tagName === 'SELECT') p.v = el.value;
           else { var n = parseFloat(el.value); if (!isFinite(n)) { el.value = p.v; return; } p.v = n; }
@@ -64,10 +116,7 @@
       });
     });
     $('resetBtn').addEventListener('click', function () {
-      GROUPS.forEach(function (g) {
-        if (!CONFIG[g.key]) return;
-        Object.keys(CONFIG[g.key]).forEach(function (k) { CONFIG[g.key][k].v = DEFAULTS[g.key][k].v; });
-      });
+      eachParam(function (g, k) { CONFIG[g][k].v = DEFAULTS[g][k].v; });
       syncRail(); recalc();
     });
   }
@@ -77,12 +126,9 @@
     return p.d ? Math.round(p.v * 10000) / 10000 : p.v;
   }
   function syncRail() {
-    GROUPS.forEach(function (g) {
-      if (!CONFIG[g.key]) return;
-      Object.keys(CONFIG[g.key]).forEach(function (k) {
-        var el = $('p_' + g.key + '_' + k), p = CONFIG[g.key][k]; if (!el) return;
-        if (el.type === 'checkbox') el.checked = !!p.v; else el.value = fmtVal(p);
-      });
+    eachParam(function (g, k, p) {
+      var el = $('p_' + g + '_' + k); if (!el) return;
+      if (el.type === 'checkbox') el.checked = !!p.v; else el.value = fmtVal(p);
     });
   }
 
@@ -90,11 +136,7 @@
   var lastGood = null;
   function snapshot() {
     var o = {};
-    GROUPS.forEach(function (g) {
-      if (!CONFIG[g.key]) return;
-      o[g.key] = {};
-      Object.keys(CONFIG[g.key]).forEach(function (k) { o[g.key][k] = CONFIG[g.key][k].v; });
-    });
+    eachParam(function (g, k, p) { (o[g] = o[g] || {})[k] = p.v; });
     return o;
   }
   function restore(s) {
@@ -118,7 +160,7 @@
     try {
       renderTz(); renderCalendar(); renderWarn(); renderKpi(); renderChart();
       renderDaySelector(); renderDay(); renderFlow(); renderFinance();
-      renderMonths(); renderDaily(); renderExport(); renderFoot();
+      renderCapital(); renderMonths(); renderDaily(); renderExport(); renderFoot();
     } catch (err) {
       showErr('Не удалось отрисовать пульт', err.message +
         '\nОбычно это старая версия страницы в кэше браузера. Обновите страницу с очисткой кэша: ' +
@@ -197,7 +239,9 @@
       { c: k.overPeak > 0.5 ? 'bad' : 'ok', l: 'Не хватает места', v: fmt(k.overPeak), u: 'т', d: k.overDays + ' сут за сезон' },
       { c: k.idle > 0.5 ? 'bad' : 'ok', l: 'Простой завода масла', v: fmt(k.idle), u: 'т', d: 'недоработано сырья' },
       { c: 'raps', l: 'Прибыль лежит в остатках', v: (k.endValue / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }), u: 'млн ₽',
-        d: (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата' }
+        d: (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата' },
+      { c: 'raps', l: 'Обрушка остановлена', v: fmt(C.policy.kernStop.v), u: 'сут',
+        d: 'не переработано ' + fmt(C.policy.kernStop.v * C.kernel.intake.v) + ' т семечки' }
     ];
     $('peakbar').innerHTML = items.map(function (i) {
       return '<div class="pb ' + i.c + '"><div class="l">' + i.l + '</div>' +
@@ -368,6 +412,29 @@
     $('flowTbl').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
   }
 
+  /* ---------------- оборотный капитал (B35–B41) ---------------- */
+  var CAP_ROWS = [
+    { l: 'Запас сырья (мес)', c: 'B35', f: function (m) { return m.stockRaw; } },
+    { l: 'КЗ (½ мес)', c: 'B36', f: function (m) { return m.stockRaw * CONFIG.finance.apMonths.v; } },
+    { l: 'ДЗ (мес)', c: 'B37', f: function (m) { return m.arRaw; } },
+    { l: 'Вложенный капитал', c: 'B38', f: function (m) { return m.capital; }, b: 1 },
+    { l: '% пользования (год)', c: 'B40', f: function (m) { return m.capital * CONFIG.finance.moneyRate.v; } },
+    { l: '% пользования (мес)', c: 'B41', f: function (m) { return m.interest; }, b: 1 }
+  ];
+  function renderCapital() {
+    var html = '<thead><tr><th>Показатель</th><th>Ячейка</th>' +
+      model.months.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '<th>ИТОГО</th></tr></thead><tbody>';
+    CAP_ROWS.forEach(function (row) {
+      var vals = model.months.map(row.f);
+      var total = row.l.indexOf('%') === 0 ? vals.reduce(function (a, x) { return a + x; }, 0)
+        : vals.reduce(function (a, x) { return a + x; }, 0) / model.months.length;
+      html += '<tr' + (row.b ? ' class="tot"' : '') + '><td>' + esc(row.l) + '</td><td class="cell">' + row.c + '</td>' +
+        vals.map(function (v) { return '<td>' + fmt(v / 1000) + '</td>'; }).join('') +
+        '<td>' + fmt(total / 1000) + '</td></tr>';
+    });
+    $('capTbl').innerHTML = html + '</tbody>';
+  }
+
   /* ---------------- накопительно по месяцам ---------------- */
   function renderMonths() {
     var cumK = 0, cumR = 0;
@@ -522,12 +589,8 @@
       fmt(CONFIG.oil.procCost.v / CONFIG.finance.vatService.v) + ' ₽/т.';
   }
 
-  function doExport() {
-    var scope = $('expScope').value;
-    var rows = scope === 'all' ? model.days : model.days.filter(function (r) { return r.month === +scope; });
+  function bdrSheets() {
     var r2 = function (x) { return Math.round(x * 100) / 100; };
-
-    /* лист БДР: строки-показатели, колонки-месяцы, последняя колонка ИТОГО */
     var bdr = [['БДР'].concat(model.months.map(function (m) { return m.label; }), ['ИТОГО'])];
     bdr.push(['Культура месяца'].concat(model.months.map(function (m) { return m.crop === 'kern' ? 'семечка' : 'рапс'; }), ['']));
     BDR_ROWS.forEach(function (row) {
@@ -537,7 +600,28 @@
         model.months.map(function (m) { return { v: r2(row.f(m)), b: bold }; }),
         [{ v: r2(bdrTotal(row)), b: true }]));
     });
-    var bdrSheet = { name: 'БДР', widths: [38].concat(model.months.map(function () { return 12; }), [13]), rows: bdr };
+    var cap = [[{ v: 'Оборотный капитал, тыс. руб', b: true }, { v: 'Ячейка', b: true }].concat(
+      model.months.map(function (m) { return { v: m.label, b: true }; }), [{ v: 'ИТОГО', b: true }])];
+    CAP_ROWS.forEach(function (row) {
+      var vals = model.months.map(function (m) { return r2(row.f(m) / 1000); });
+      var total = vals.reduce(function (a, x) { return a + x; }, 0);
+      if (row.l.indexOf('%') !== 0) total = total / model.months.length;
+      cap.push([{ v: row.l, b: !!row.b }, row.c].concat(
+        vals.map(function (v) { return { v: v, b: !!row.b }; }), [{ v: r2(total), b: true }]));
+    });
+    return [
+      { name: 'БДР', widths: [38].concat(model.months.map(function () { return 12; }), [13]), rows: bdr },
+      { name: 'Оборотный капитал', widths: [26, 9].concat(model.months.map(function () { return 12; }), [13]), rows: cap }
+    ];
+  }
+  function doExportBdr() {
+    XLSXLite.download('Ядро_Масло_БДР.xlsx', bdrSheets());
+  }
+
+  function doExport() {
+    var scope = $('expScope').value;
+    var rows = scope === 'all' ? model.days : model.days.filter(function (r) { return r.month === +scope; });
+    var r2 = function (x) { return Math.round(x * 100) / 100; };
 
     /* лист по дням */
     var aoa = [DAILY_COLS.map(function (c) { return { v: c[0], b: true }; })];
@@ -552,16 +636,11 @@
 
     /* лист параметров с источниками */
     var pa = [[{ v: 'Группа', b: true }, { v: 'Параметр', b: true }, { v: 'Значение', b: true }, { v: 'Ед.', b: true }, { v: 'Источник', b: true }]];
-    GROUPS.forEach(function (g) {
-      if (!CONFIG[g.key]) return;
-      Object.keys(CONFIG[g.key]).forEach(function (k) {
-        var p = CONFIG[g.key][k]; pa.push([g.title, p.label, p.v, p.u, p.src]);
-      });
-    });
+    eachParam(function (g, k, p) { pa.push([GROUP_TITLES[g] || g, p.label, p.v, p.u, p.src]); });
     var parSheet = { name: 'Параметры', widths: [22, 38, 14, 8, 52], rows: pa };
 
     XLSXLite.download('Ядро_Масло_' + (scope === 'all' ? 'сезон' : model.months[+scope].label) + '.xlsx',
-      [bdrSheet, daySheet, parSheet]);
+      bdrSheets().concat([daySheet, parSheet]));
   }
 
   function renderFoot() {
@@ -584,6 +663,17 @@
     });
     $('dayRange').addEventListener('input', function () { curDay = +this.value; renderDay(); moveMark(); });
     $('expBtn').addEventListener('click', doExport);
+    if ($('expBdr')) $('expBdr').addEventListener('click', doExportBdr);
+    document.querySelectorAll('.tab').forEach(function (b) {
+      b.addEventListener('click', function () {
+        document.querySelectorAll('.tab').forEach(function (x) { x.classList.remove('is-on'); });
+        b.classList.add('is-on');
+        document.querySelectorAll('.tabpane').forEach(function (pane) {
+          pane.hidden = (pane.id !== 'tab-' + b.dataset.tab);
+        });
+        if (b.dataset.tab === 'pult') renderChart();
+      });
+    });
     document.querySelectorAll('.sect-h.tog').forEach(function (h) {
       h.addEventListener('click', function () { document.getElementById(h.dataset.sect).classList.toggle('open'); });
     });

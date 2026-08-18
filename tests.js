@@ -9,12 +9,12 @@ var EPS = 1e-6;
 /* ЭТАЛОН. Конкретные величины на исходных параметрах — чтобы тест краснел при любом
    изменении поведения модели, а не только при логической поломке. Меняются осознанно. */
 var BASELINE = {
-  peakStock: 3893.5,   // пик хранения, т
+  peakStock: 3793,     // пик хранения, т
   overDays: 0,         // суток с превышением вместимости
   overPeak: 0,         // максимум сверх вместимости, т
-  minKern: 70.35,      // минимальный остаток ядра за сезон, т
-  kernMonths: 7,       // месяцев на семечке
-  rapeMonths: 3        // месяцев на рапсе
+  minKern: 0,          // минимальный остаток ядра за сезон, т (0 — сезон закрывается в ноль)
+  kernMonths: 5,       // месяцев на семечке
+  rapeMonths: 5        // месяцев на рапсе
 };
 var results = [];
 function check(id, name, ok, where, detail) {
@@ -74,9 +74,12 @@ var C = CONFIG, cap = m.capTotal;
     ' + ' + (K.yLoss.v * 100) + ' = ' + (s * 100).toFixed(2) + ' %');
   /* та же проверка на тоннах */
   var tot = m.kpi.kern1 + m.kpi.kern2 + m.kpi.husk;
-  var inp = C.kernel.intake.v * C.horizon.workDays.v * C.horizon.months.v;
-  check('2б', 'То же на тоннах за сезон', Math.abs(tot - inp) < 1e-6 * inp,
-    'пульт, таблица «Потоки»', f(tot) + ' т выхода при ' + f(inp) + ' т входа');
+  /* вход считаем по факту: обрушка останавливается перед концом горизонта */
+  var inp = m.days.reduce(function (a, r) { return a + r.seedIn; }, 0);
+  var full = C.kernel.intake.v * C.horizon.workDays.v * C.horizon.months.v;
+  check('2б', 'То же на тоннах за сезон', Math.abs(tot - inp) < 1e-6 * Math.max(1, inp),
+    'пульт, таблица «Потоки»', f(tot) + ' т выхода при ' + f(inp) + ' т входа (из ' + f(full) +
+    ' т при непрерывной работе; обрушка стоит ' + C.policy.kernStop.v + ' сут)');
 })();
 
 /* --- 3. Завод масла не берёт больше, чем лежит --- */
@@ -232,6 +235,51 @@ var C = CONFIG, cap = m.capTotal;
   check('10', 'Недопустимый ввод даёт понятную ошибку, а не NaN', bad.length === 0,
     'пульт, красная плашка над параметрами',
     bad.length ? 'без ошибки прошли: ' + bad.join(', ') : 'проверено ' + cases.length + ' случаев, все отклонены с текстом');
+})();
+
+/* --- 11. Закрытие сезона: остатки выработаны в ноль --- */
+(function () {
+  var TOL = 0.01;
+  var ok = Math.abs(m.kpi.endKern2) < TOL && Math.abs(m.kpi.endKern3) < TOL && Math.abs(m.kpi.endRape) < TOL;
+  check('11', 'Конечный запас обеих культур ровно ноль (допуск 0,01 т)', ok,
+    'пульт, плитка «Прибыль лежит в остатках»',
+    'ядро ' + m.kpi.endKern2.toFixed(4) + ' т, рапс ' + m.kpi.endRape.toFixed(4) +
+    ' т, стоимость запаса ' + (m.kpi.endValue / 1e6).toFixed(3) + ' млн руб');
+})();
+
+/* --- 12. Смена культуры внутри месяца — только в последнем месяце и один раз --- */
+(function () {
+  var bad = [], lastIdx = m.months.length - 1;
+  m.months.forEach(function (mo) {
+    var seq = m.days.filter(function (r) { return r.month === mo.idx && r.useCrop !== 'none'; })
+      .map(function (r) { return r.useCrop; });
+    var sw = 0;
+    for (var i = 0; i < seq.length; i++) {
+      if (seq[i] === 'both') sw++;
+      else if (i && seq[i - 1] !== 'both' && seq[i] !== seq[i - 1]) sw++;
+    }
+    if (mo.idx === lastIdx ? sw > 1 : sw > 0) bad.push(mo.label + ': ' + sw);
+  });
+  check('12', 'Переключение внутри месяца — ровно один раз и только в последнем месяце', bad.length === 0,
+    'пульт, таблица «Итоги по дням» последнего месяца',
+    bad.length ? 'нарушения: ' + bad.join(', ')
+      : 'переходов внутри месяца: ' + m.months.map(function (x) { return x.mixDays; }).join(' / ') +
+        ' — единственный в ' + m.months[lastIdx].label);
+})();
+
+/* --- 13. Баланс масс замкнут: закуплено = переработано, остатка нет --- */
+(function () {
+  var S = CONFIG.storage, inSeed = m.kpi.seedBuy + 0, inRape = m.kpi.rapeBuy + S.startRape.v;
+  var procSeed = m.days.reduce(function (a, r) { return a + r.seedIn; }, 0);
+  var usedRape = m.days.reduce(function (a, r) { return a + r.useRape; }, 0);
+  var kernIn = m.days.reduce(function (a, r) { return a + r.kern2 + r.kern3; }, 0) + S.startKern2.v + S.startKern3.v;
+  var kernUsed = m.days.reduce(function (a, r) { return a + r.useKern2 + r.useKern3; }, 0);
+  var d1 = Math.abs(inSeed - procSeed), d2 = Math.abs(inRape - usedRape), d3 = Math.abs(kernIn - kernUsed);
+  check('13', 'Всё закупленное переработано или продано, остатка нет', d1 < 0.01 && d2 < 0.01 && d3 < 0.01,
+    'пульт, таблица «Потоки»',
+    'семечка: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
+    'рапс: закуп ' + f(inRape) + ' = переработано ' + f(usedRape) + ' (Δ ' + d2.toFixed(4) + '); ' +
+    'ядро: на склад ' + f(kernIn) + ' = в маслоцех ' + f(kernUsed) + ' (Δ ' + d3.toFixed(4) + ')');
 })();
 
 /* --- вывод --- */
