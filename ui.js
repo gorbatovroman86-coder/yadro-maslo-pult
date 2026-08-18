@@ -187,19 +187,19 @@
   function renderCalendar() {
     var swMonths = {}; model.switches.forEach(function (s) { swMonths[s.month] = 1; });
     $('calendar').innerHTML = model.months.map(function (m) {
-      var mult = m.need > 0 ? m.available / m.need : 0;
       var t = 'На 1-е число: остаток ' + fmt(m.stockAtStart) + ' т + приход за месяц ' + fmt(m.planned) +
         ' т = доступно ' + fmt(m.available) + ' т; нужно ' + fmt(m.need) + ' т → ' +
         (m.crop === 'kern' ? 'семечка' : 'рапс') +
         (m.failDay ? '; посуточно не хватило на ' + m.failDay + '-е сутки' : '');
       return '<div class="mchip ' + (m.crop === 'kern' ? 'kern' : 'raps') + (swMonths[m.idx] && m.idx > 0 ? ' sw' : '') + '" title="' + esc(t) + '">' +
-        '<div class="mn">' + m.label + '</div><div class="mt">' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</div>' +
-        '<div class="mt" style="opacity:.75">' + fmt1(mult) + '×</div></div>';
+        '<div class="mn">' + m.label + '</div><div class="mt">' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</div></div>';
     }).join('');
     var sw = model.switches.filter(function (s) { return s.from; });
+    var cap = CONFIG.oil.intakeKern.v, wd = CONFIG.horizon.workDays.v, sd = CONFIG.policy.safetyDays.v;
     $('calSum').innerHTML =
-      '<span>Правило: доступное ядро (остаток + приход за месяц) ≥ <b>' + fmt(CONFIG.oil.intakeKern.v *
-        (CONFIG.horizon.workDays.v + CONFIG.policy.safetyDays.v)) + ' т</b> и обеспеченность каждые сутки</span>' +
+      '<span>Потребность завода: <b>' + fmt(cap) + ' т/сут × ' + fmt(wd) + ' дн = ' + fmt(cap * wd) + ' т</b></span>' +
+      (sd > 0 ? '<span>Порог запуска: <b>' + fmt(cap * wd) + ' т + страховой запас ' + fmt(sd) + ' дн = ' +
+        fmt(cap * (wd + sd)) + ' т</b></span>' : '') +
       '<span>Месяцев на семечке: <b>' + model.kpi.kernMonths + '</b></span>' +
       '<span>на рапсе: <b>' + model.kpi.rapeMonths + '</b></span>' +
       '<span>Смен культуры: <b>' + sw.length + '</b></span>' +
