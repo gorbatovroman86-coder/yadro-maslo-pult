@@ -65,9 +65,14 @@
     horizon: 'Горизонт', kernel: 'Завод ядра', oil: 'Завод масла', storage: 'Склады', policy: 'Правила работы',
     priceParts: 'Цены: составляющие', prices: 'Цены, ₽/т с НДС', freight: 'Отгрузка, ₽/т с НДС', finance: 'Финансы'
   };
-  /* подпись культуры по факту работы завода */
-  var CROP_NAME = { kern: 'ядро 2 кат.', rape: 'рапс', mix: 'ядро 2 кат. + рапс', none: 'завод стоял' };
-  function cropName(code) { return CROP_NAME[code] || '—'; }
+  /* на чём завод масла работал по факту */
+  var WORK_NAME = { kern: 'на ядре 2 кат.', rape: 'на рапсе', mix: 'на обеих', none: 'завод стоял' };
+  function cropName(code) { return WORK_NAME[code] || '—'; }
+  /* для месяца: при работе на обеих культурах показываем объёмы */
+  function workOf(m) {
+    if (m.cropFact !== 'mix') return cropName(m.cropFact);
+    return 'на ядре 2 кат. ' + fmt(m.oilFromKern) + ' т + на рапсе ' + fmt(m.oilFromRape) + ' т';
+  }
 
   function param(path) { var a = path.split('.'); return CONFIG[a[0]] && CONFIG[a[0]][a[1]]; }
   function eachParam(fn) {
@@ -419,7 +424,7 @@
   /* ---------------- потоки по месяцам ---------------- */
   function renderFlow() {
     var head = '<thead><tr>' +
-      '<th rowspan="2">Месяц</th><th rowspan="2">Культура</th>' +
+      '<th rowspan="2">Месяц</th><th rowspan="2">Работа завода масла</th>' +
       '<th colspan="2">Приход сырья</th><th colspan="3">Завод ядра выдал</th>' +
       '<th colspan="2">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th></tr>' +
       '<tr><th>ядро 2 кат.</th><th>рапс</th><th>ядро 1 кат.</th><th>ядро 2 кат.</th><th>лузга</th>' +
@@ -431,7 +436,7 @@
       t.seedBuy += m.seedBuy; t.rapeBuy += m.rapeBuy; t.kern1 += m.kern1; t.kern2 += m.kern2;
       t.husk += m.husk; t.fk += m.oilFromKern; t.fr += m.oilFromRape; t.idle += m.idle;
       return '<tr class="' + (m.crop === 'kern' ? 'k' : 'r') + '"><td>' + m.label + '</td>' +
-        '<td style="text-align:left">' + cropName(m.cropFact) + '</td>' +
+        '<td style="text-align:left">' + workOf(m) + '</td>' +
         '<td class="g1">' + fmt(m.seedBuy) + '</td><td class="g1">' + fmt(m.rapeBuy) + '</td>' +
         '<td class="g2">' + fmt(m.kern1) + '</td><td class="g2">' + fmt(m.kern2) + '</td><td class="g2">' + fmt(m.husk) + '</td>' +
         '<td class="g3">' + fmt(m.oilFromKern) + '</td><td class="g3">' + fmt(m.oilFromRape) + '</td>' +
@@ -492,7 +497,7 @@
   /* ---------------- таблица по дням ---------------- */
   var DAILY_COLS = [
     ['Дата', function (r) { return r.date; }, ''],
-    ['Культ.', function (r) { return cropName(r.useCrop); }, 'dim'],
+    ['Работа', function (r) { return r.useCrop === 'both' ? 'на обеих' : cropName(r.useCrop); }, 'dim'],
     ['Ядро 2 кат.', function (r) { return fmt(r.seedBuy); }, ''],
     ['Рапс', function (r) { return fmt(r.rapeBuy); }, ''],
     ['Ядро 1 кат.', function (r) { return fmt(r.kern1); }, ''],
@@ -602,10 +607,10 @@
     };
     var html = '<thead><tr><th>Показатель</th>' +
       model.months.map(function (m) { return '<th>' + m.label + '</th>'; }).join('') + '<th>ИТОГО</th></tr>' +
-      '<tr><td style="font-weight:600">Культура месяца</td>' +
+      '<tr><td style="font-weight:600">Работа завода масла</td>' +
       model.months.map(function (m) {
         return '<td style="color:' + (m.cropFact === 'rape' ? 'var(--raps-d)' : 'var(--kern-d)') + ';font-weight:600">' +
-          cropName(m.cropFact) + '</td>';
+          workOf(m) + '</td>';
       }).join('') + '<td></td></tr></thead><tbody>';
     BDR_ROWS.forEach(function (row) {
       html += '<tr class="' + row.c + '"><td>' + esc(row.l) + '</td>' +
@@ -632,7 +637,7 @@
   function bdrSheets() {
     var r2 = function (x) { return Math.round(x * 100) / 100; };
     var bdr = [['БДР'].concat(model.months.map(function (m) { return m.label; }), ['ИТОГО'])];
-    bdr.push(['Культура месяца'].concat(model.months.map(function (m) { return cropName(m.cropFact); }), ['']));
+    bdr.push(['Работа завода масла'].concat(model.months.map(function (m) { return workOf(m); }), ['']));
     BDR_ROWS.forEach(function (row) {
       var bold = row.c === 'sum' || row.c === 'res';
       var label = (row.c === 'sub' ? '   ' : '') + row.l;
