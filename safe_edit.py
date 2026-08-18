@@ -10,7 +10,7 @@
   * cut() проверяет порядок границ и не возвращает пустой срез;
   * write() откатывает файл, если он вырос больше чем вдвое или образец не найден.
 """
-import io, os, shutil, sys
+import io, os, re, shutil, sys
 
 GROWTH_LIMIT = 2.0
 
@@ -29,6 +29,17 @@ class Doc:
                 raise KeyError('образец не найден: %r' % old[:80])
             return self
         self.text = self.text.replace(old, new)
+        return self
+
+    def sub(self, pattern, repl, required=True):
+        """Регулярная замена с подсчётом. Пустой шаблон запрещён."""
+        if not pattern:
+            raise ValueError('пустой шаблон замены')
+        new, n = re.subn(pattern, repl, self.text)
+        if n == 0 and required:
+            raise KeyError('шаблон не встретился: %r' % pattern)
+        self.text = new
+        self.hits = getattr(self, 'hits', 0) + n
         return self
 
     def cut(self, start, end):

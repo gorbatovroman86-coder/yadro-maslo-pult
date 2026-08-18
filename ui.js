@@ -29,7 +29,7 @@
   ];
   /* короткие подписи для узкой панели; полное название и источник — в подсказке */
   var SHORT = {
-    'kernel.intake': 'Заход семечки', 'kernel.procCost': 'Переработка ядра',
+    'kernel.intake': 'Заход ядра 2 кат.', 'kernel.procCost': 'Переработка ядра',
     'kernel.yKern1': 'Ядро 1 кат.', 'kernel.yKern2': 'Ядро 2 кат. (расчёт)', 'kernel.yKern3': 'Ядро 3 кат.',
     'kernel.yHusk': 'Лузга', 'kernel.yLoss': 'Потери',
     'oil.intakeRape': 'Маслоцех на рапсе', 'oil.intakeKern': 'Маслоцех на ядре', 'oil.procCost': 'Переработка масла',
@@ -53,7 +53,7 @@
     'priceParts.sunMealBase': 'Жмых подс., база', 'priceParts.rapeOilCny': 'Масло рапс., ¥',
     'priceParts.rapeOilLog': 'Масло рапс., логистика', 'priceParts.rapeMealCny': 'Жмых рапс., ¥',
     'priceParts.rapeMealLog': 'Жмых рапс., логистика',
-    'prices.buySeed': 'Закуп семечки', 'prices.buyRape': 'Закуп рапса', 'prices.husk': 'Продажа лузги',
+    'prices.buySeed': 'Закуп ядра 2 кат.', 'prices.buyRape': 'Закуп рапса', 'prices.husk': 'Продажа лузги',
     'prices.kern1': 'Ядро 1 кат.', 'prices.sunOil': 'Масло подсолн.', 'prices.sunMeal': 'Жмых подсолн.',
     'prices.rapeOil': 'Масло рапсовое', 'prices.rapeMeal': 'Жмых рапсовый',
     'freight.kern1': 'Ядро 1 кат.', 'freight.oil': 'Масло', 'freight.meal': 'Жмых',
@@ -408,7 +408,7 @@
       '<th rowspan="2">Месяц</th><th rowspan="2">Культура</th>' +
       '<th colspan="2">Приход сырья</th><th colspan="3">Завод ядра выдал</th>' +
       '<th colspan="2">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th></tr>' +
-      '<tr><th>семечка</th><th>рапс</th><th>ядро 1 кат.</th><th>ядро 2 кат.</th><th>лузга</th>' +
+      '<tr><th>ядро 2 кат.</th><th>рапс</th><th>ядро 1 кат.</th><th>ядро 2 кат.</th><th>лузга</th>' +
       '<th>из ядра</th><th>из рапса</th>' +
       '<th>ядро 2 кат.</th><th>рапс</th><th>всего</th><th>сверх</th></tr></thead>';
     var t = { seedBuy: 0, rapeBuy: 0, kern1: 0, kern2: 0, husk: 0, fk: 0, fr: 0, idle: 0 };
@@ -479,7 +479,7 @@
   var DAILY_COLS = [
     ['Дата', function (r) { return r.date; }, ''],
     ['Культ.', function (r) { return r.crop === 'kern' ? 'ядро 2 кат.' : 'рапс'; }, 'dim'],
-    ['Семечка', function (r) { return fmt(r.seedBuy); }, ''],
+    ['Ядро 2 кат.', function (r) { return fmt(r.seedBuy); }, ''],
     ['Рапс', function (r) { return fmt(r.rapeBuy); }, ''],
     ['Ядро 1 кат.', function (r) { return fmt(r.kern1); }, ''],
     ['Ядро 2 кат.', function (r) { return fmt(r.kern2); }, ''],
@@ -540,7 +540,7 @@
     { l: 'Жмых рапсовый', u: 'm', c: 'sub', f: function (m) { return m.revRapeMeal / 1000; } },
     { l: 'Лузга', u: 'm', c: 'sub', f: function (m) { return m.revHusk / 1000; } },
     { l: 'Себестоимость (тыс. руб)', u: 'm', c: 'sum', f: function (m) { return m.cost / 1000; } },
-    { l: 'Списано ядро 1 кат. (закуп семечки + обрушка)', u: 'm', c: 'sub', f: function (m) { return m.costKern1 / 1000; } },
+    { l: 'Списано ядро 1 кат. (закуп ядра 2 кат. + обрушка)', u: 'm', c: 'sub', f: function (m) { return m.costKern1 / 1000; } },
     { l: 'Списано ядро 2 кат., проданное на сторону', u: 'm', c: 'sub', f: function (m) { return m.costKern2Sold / 1000; } },
     { l: 'Списано сырьё маслоцеха (ядро 2 кат. / рапс)', u: 'm', c: 'sub', f: function (m) { return m.costOilRaw / 1000; } },
     { l: 'Переработка на маслоцехе', u: 'm', c: 'sub', f: function (m) { return m.costProcOil / 1000; } },
@@ -575,7 +575,7 @@
         sub: 'ядро ' + fmt(k.endKern2) + ' т · рапс ' + fmt(k.endRape) + ' т<br><b>' +
           (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата не в деньгах</b>' },
       { c: 'cost', l: 'Закрытие сезона', n: fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v), u: 'т',
-        sub: 'непереработано семечки<br>обрушка стоит <b>' + fmt(CONFIG.policy.kernStop.v) + ' сут</b>' +
+        sub: 'непереработано ядра 2 кат.<br>обрушка стоит <b>' + fmt(CONFIG.policy.kernStop.v) + ' сут</b>' +
           (CONFIG.policy.sellKern2.v ? '<br>продано ядра 2 кат. ' + fmt(k.sellKern2) + ' т' : '') }
     ];
     $('finHead').innerHTML = head.map(function (h) {
@@ -610,7 +610,7 @@
       'культур и вторым переделом на маслоцехе, которого в формуле листа нет.<br>' +
       'Тонна ядра 2 кат. стоит <b>' + fmt(perTon) + ' ₽</b>. Сезон закрывается в ноль: обрушка стоит <b>' +
       fmt(CONFIG.policy.kernStop.v) + ' сут</b>, <b>' + fmt(CONFIG.policy.kernStop.v * CONFIG.kernel.intake.v) +
-      ' т</b> семечки — перенос в следующий сезон, не потеря.<br>' +
+      ' т</b> ядра 2 кат. — перенос в следующий сезон, не потеря.<br>' +
       '<span style="color:var(--ink3)">Методика, сценарный анализ и чувствительность — в README и в листе ' +
       '«Сценарный анализ» выгрузки.</span>';
   }

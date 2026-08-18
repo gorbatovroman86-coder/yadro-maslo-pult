@@ -153,7 +153,7 @@ function calcModel(cfg) {
     prevCrop = crop;
 
     /* --- план закупа на месяц --- */
-    var seedNeed = K.intake * kernDaysIn;                  // семечка только на те сутки, когда обрушка работает
+    var seedNeed = K.intake * kernDaysIn;                  // ядро 2 кат. только на те сутки, когда обрушка работает
     var rapeMonth = O.intakeRape * h.workDays;             // месячная потребность завода масла
     var rapeNeed;
     if (isLast) {

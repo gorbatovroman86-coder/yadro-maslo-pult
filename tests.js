@@ -277,7 +277,7 @@ var C = CONFIG, cap = m.capTotal;
   var d1 = Math.abs(inSeed - procSeed), d2 = Math.abs(inRape - usedRape), d3 = Math.abs(kernIn - kernUsed);
   check('13', 'Всё закупленное переработано или продано, остатка нет', d1 < 0.01 && d2 < 0.01 && d3 < 0.01,
     'пульт, таблица «Потоки»',
-    'семечка: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
+    'ядро 2 кат.: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
     'рапс: закуп ' + f(inRape) + ' = переработано ' + f(usedRape) + ' (Δ ' + d2.toFixed(4) + '); ' +
     'ядро: на склад ' + f(kernIn) + ' = в маслоцех и на сторону ' + f(kernUsed) + ' (Δ ' + d3.toFixed(4) + ')');
 })();
