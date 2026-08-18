@@ -1,0 +1,22 @@
+# Исходные и выгруженные книги Excel — в репозиторий не уходят
+*.xlsx
+*.xls
+*.xlsm
+*.csv
+БДР*
+~$*
+
+# macOS
+.DS_Store
+._*
+.Spotlight-V100
+.Trashes
+
+# Редакторы и служебное
+.vscode/
+.idea/
+*.swp
+*.bak
+*.tmp
+node_modules/
+.claude/
