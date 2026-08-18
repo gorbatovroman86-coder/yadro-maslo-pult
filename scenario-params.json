@@ -1,0 +1,12 @@
+{
+  "kernIntake": 90,
+  "oilKern": 90,
+  "oilRape": 90,
+  "safetyDays": 3,
+  "minRunDays": 5,
+  "procKern": 5000,
+  "procOil": 5000,
+  "coefOn": 0,
+  "kern2Price": 46674.7875,
+  "kernStop": 29
+}

@@ -174,7 +174,7 @@
     try {
       renderTz(); renderCalendar(); renderWarn(); renderKpi(); renderK2(); renderChart();
       renderDaySelector(); renderDay(); renderFlow(); renderFinance();
-      renderCapital(); renderMonths(); renderDaily(); renderExport(); renderFoot();
+      renderCapital(); renderDaily(); renderExport(); renderFoot();
     } catch (err) {
       showErr('Не удалось отрисовать пульт', err.message +
         '\nОбычно это старая версия страницы в кэше браузера. Обновите страницу с очисткой кэша: ' +
@@ -426,27 +426,32 @@
     var head = '<thead><tr>' +
       '<th rowspan="2">Месяц</th><th rowspan="2">Работа завода масла</th>' +
       '<th colspan="2">Приход сырья</th><th colspan="3">Завод ядра выдал</th>' +
-      '<th colspan="2">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th></tr>' +
+      '<th colspan="2">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th>' +
+      '<th colspan="2">Накопительно</th></tr>' +
       '<tr><th>ядро 2 кат.</th><th>рапс</th><th>ядро 1 кат.</th><th>ядро 2 кат.</th><th>лузга</th>' +
       '<th>из ядра</th><th>из рапса</th>' +
-      '<th>ядро 2 кат.</th><th>рапс</th><th>всего</th><th>сверх</th></tr></thead>';
+      '<th>ядро 2 кат.</th><th>рапс</th><th>всего</th><th>сверх</th>' +
+      '<th>ядро 2 кат.</th><th>рапс закуплен</th></tr></thead>';
     var t = { seedBuy: 0, rapeBuy: 0, kern1: 0, kern2: 0, husk: 0, fk: 0, fr: 0, idle: 0 };
+    var cumK = 0, cumR = 0;
     var body = model.months.map(function (m) {
       var L = model.days[(m.idx + 1) * CONFIG.horizon.workDays.v - 1];
       t.seedBuy += m.seedBuy; t.rapeBuy += m.rapeBuy; t.kern1 += m.kern1; t.kern2 += m.kern2;
       t.husk += m.husk; t.fk += m.oilFromKern; t.fr += m.oilFromRape; t.idle += m.idle;
+      cumK += m.kern2; cumR += m.rapeBuy;
       return '<tr class="' + (m.crop === 'kern' ? 'k' : 'r') + '"><td>' + m.label + '</td>' +
         '<td style="text-align:left">' + workOf(m) + '</td>' +
         '<td class="g1">' + fmt(m.seedBuy) + '</td><td class="g1">' + fmt(m.rapeBuy) + '</td>' +
         '<td class="g2">' + fmt(m.kern1) + '</td><td class="g2">' + fmt(m.kern2) + '</td><td class="g2">' + fmt(m.husk) + '</td>' +
         '<td class="g3">' + fmt(m.oilFromKern) + '</td><td class="g3">' + fmt(m.oilFromRape) + '</td>' +
         '<td>' + fmt(L.stKern2) + '</td><td>' + fmt(L.stRape) + '</td><td>' + fmt(L.stTotal) + '</td>' +
-        '<td class="' + (m.overPeak > 0.5 ? 'bad' : '') + '">' + (m.overPeak > 0.5 ? fmt(m.overPeak) : '—') + '</td></tr>';
+        '<td class="' + (m.overPeak > 0.5 ? 'bad' : '') + '">' + (m.overPeak > 0.5 ? fmt(m.overPeak) : '—') + '</td>' +
+        '<td class="g4">' + fmt(cumK) + '</td><td class="g4">' + fmt(cumR) + '</td></tr>';
     }).join('');
     var foot = '<tfoot><tr><td>ИТОГО</td><td></td><td>' + fmt(t.seedBuy) + '</td><td>' + fmt(t.rapeBuy) + '</td>' +
       '<td>' + fmt(t.kern1) + '</td><td>' + fmt(t.kern2) + '</td><td>' + fmt(t.husk) + '</td>' +
       '<td>' + fmt(t.fk) + '</td><td>' + fmt(t.fr) + '</td>' +
-      '<td colspan="4"></td></tr></tfoot>';
+      '<td colspan="4"></td><td>' + fmt(cumK) + '</td><td>' + fmt(cumR) + '</td></tr></tfoot>';
     $('flowTbl').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
   }
 
@@ -471,27 +476,6 @@
         '<td>' + fmt(total / 1000) + '</td></tr>';
     });
     $('capTbl').innerHTML = html + '</tbody>';
-  }
-
-  /* ---------------- накопительно по месяцам ---------------- */
-  function renderMonths() {
-    var cumK = 0, cumR = 0;
-    $('months').innerHTML = model.months.map(function (m) {
-      var L = model.days[(m.idx + 1) * CONFIG.horizon.workDays.v - 1];
-      cumK += m.kern2; cumR += m.rapeBuy;
-      return '<div class="mo ' + (m.crop === 'kern' ? 'k' : 'r') + '">' +
-        '<div class="mh">' + m.label + '<small>' + cropName(m.cropFact) + '</small></div>' +
-        '<div class="mr"><span>Ядро 2 кат. пришло</span><b>' + fmt(m.kern2) + '</b></div>' +
-        '<div class="mr"><span>Ядро ушло на масло</span><b>' + fmt(m.oilFromKern) + '</b></div>' +
-        '<div class="mr"><span>Рапс закуплен</span><b>' + fmt(m.rapeBuy) + '</b></div>' +
-        '<div class="sep"></div>' +
-        '<div class="mr"><span>Остаток на конец</span><b>' + fmt(L.stTotal) + '</b></div>' +
-        '<div class="mr' + (m.overPeak > 0.5 ? ' bad' : '') + '"><span>Сверх вместимости</span><b>' + (m.overPeak > 0.5 ? fmt(m.overPeak) : '—') + '</b></div>' +
-        '<div class="sep"></div>' +
-        '<div class="mr"><span>Ядра накопительно</span><b>' + fmt(cumK) + '</b></div>' +
-        '<div class="mr"><span>Рапса накопительно</span><b>' + fmt(cumR) + '</b></div>' +
-        '</div>';
-    }).join('');
   }
 
   /* ---------------- таблица по дням ---------------- */

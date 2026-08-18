@@ -205,6 +205,7 @@ h1,h2,h3,h4{font-family:'Chakra Petch',system-ui,sans-serif;margin:0;letter-spac
 .flowtbl td.g1{background:rgba(94,140,61,.07)}
 .flowtbl td.g2{background:rgba(78,126,155,.08)}
 .flowtbl td.g3{background:rgba(221,160,23,.09)}
+.flowtbl td.g4{background:rgba(94,140,61,.07)}
 .flowtbl td.bad{color:var(--bad);font-weight:700}
 
 /* финансы */
@@ -309,7 +310,6 @@ table.daily td.bad{color:var(--bad);font-weight:600}
       </div>
     </div>
 
-    <div class="card k2card" id="k2card"></div>
 
     <div class="hero">
       <div class="card card-pad">
@@ -341,15 +341,9 @@ table.daily td.bad{color:var(--bad);font-weight:600}
     </div>
 
     <div class="sect" id="flowSect">
-      <div class="sect-h tog" data-sect="flowSect"><h3><span class="chev">▸</span> Потоки: что пришло, что накопилось, что переработали</h3>
-        <span class="desc">по месяцам, тонн · приход сырья и накопление разведены</span></div>
+      <div class="sect-h tog" data-sect="flowSect"><h3><span class="chev">▸</span> Движение сырья по месяцам</h3>
+        <span class="desc">тонн</span></div>
       <div class="foldable"><div class="card card-pad"><div class="xscroll"><table class="flowtbl" id="flowTbl"></table></div></div></div>
-    </div>
-
-    <div class="sect" id="monSect">
-      <div class="sect-h tog" data-sect="monSect"><h3><span class="chev">▸</span> Накопительно по месяцам</h3>
-        <span class="desc">остаток на конец месяца и нарастающий итог</span></div>
-      <div class="foldable"><div class="card card-pad"><div class="months" id="months"></div></div></div>
     </div>
 
     <div class="sect" id="dailySect">
@@ -370,6 +364,7 @@ table.daily td.bad{color:var(--bad);font-weight:600}
     </div>
     <div class="tabpane" id="tab-bdr" hidden>
       <div class="headline" id="finHead"></div>
+      <div class="card k2card" id="k2card"></div>
       <div class="sect">
         <div class="sect-h"><h3>БДР по месяцам</h3>
           <span class="desc">структура листа «Ядро+масло»: продажи в тоннах → выручка → себестоимость → отгрузка → проценты → налог → результат</span></div>
@@ -389,9 +384,9 @@ table.daily td.bad{color:var(--bad);font-weight:600}
   </main>
 </div>
 
-<script src="config.js?v=15"></script>
-<script src="engine.js?v=15"></script>
-<script src="xlsxlite.js?v=15"></script>
-<script src="ui.js?v=15"></script>
+<script src="config.js?v=16"></script>
+<script src="engine.js?v=16"></script>
+<script src="xlsxlite.js?v=16"></script>
+<script src="ui.js?v=16"></script>
 </body>
 </html>

@@ -429,6 +429,41 @@ var C = CONFIG, cap = m.capTotal;
     ', рапса дожато ' + f(L.oilFromRape) + ' т');
 })();
 
+/* --- 23. Сценарный анализ посчитан при текущих параметрах --- */
+(function () {
+  var path = __dirname + '/scenario-params.json', saved;
+  try { saved = JSON.parse(fs.readFileSync(path, 'utf8')); }
+  catch (e) {
+    check('23', 'Сценарный анализ посчитан при текущих параметрах', false,
+      'scenario-params.json, пересобрать: node scenarios.js > scenario.md',
+      'файл scenario-params.json не найден или испорчен — анализ ни разу не собирался');
+    return;
+  }
+  var now = {
+    kernIntake: CONFIG.kernel.intake.v, oilKern: CONFIG.oil.intakeKern.v, oilRape: CONFIG.oil.intakeRape.v,
+    safetyDays: CONFIG.policy.safetyDays.v, minRunDays: CONFIG.policy.minRunDays.v,
+    procKern: CONFIG.kernel.procCost.v, procOil: CONFIG.oil.procCost.v,
+    coefOn: CONFIG.priceParts.coefOn.v, kern2Price: CONFIG.prices.kern2.v, kernStop: CONFIG.policy.kernStop.v
+  };
+  var TITLE = {
+    kernIntake: 'заход ядра 2 кат.', oilKern: 'маслоцех на ядре', oilRape: 'маслоцех на рапсе',
+    safetyDays: 'страховой запас', minRunDays: 'порог минимального пуска', procKern: 'ставка обрушки',
+    procOil: 'ставка второго передела', coefOn: 'понижающий коэффициент', kern2Price: 'цена П/Ф',
+    kernStop: 'остановка обрушки'
+  };
+  var diff = Object.keys(now).filter(function (k) { return Math.abs((saved[k] || 0) - now[k]) > 1e-9; });
+  check('23', 'Сценарный анализ посчитан при текущих параметрах', diff.length === 0,
+    'scenario-params.json; пересобрать: node scenarios.js > scenario.md',
+    diff.length
+      ? 'АНАЛИЗ УСТАРЕЛ, расходятся: ' + diff.map(function (k) {
+          return TITLE[k] + ' ' + saved[k] + ' → ' + now[k];
+        }).join('; ') + '. Пересоберите scenarios.js и обновите README'
+      : 'все ' + Object.keys(now).length + ' параметров совпадают: заход ' + now.kernIntake +
+        ', маслоцех ' + now.oilKern + '/' + now.oilRape + ', страховой запас ' + now.safetyDays +
+        ', порог пуска ' + now.minRunDays + ', ставки ' + now.procKern + '/' + now.procOil +
+        ', коэффициент ' + (now.coefOn ? 'вкл' : 'выкл'));
+})();
+
 /* --- вывод --- */
 var pad = function (s, n) { s = String(s); return s + ' '.repeat(Math.max(0, n - s.length)); };
 console.log('\nИНВАРИАНТЫ МОДЕЛИ «ЯДРО + МАСЛО»\n');
