@@ -121,34 +121,36 @@
     renderMonths(); renderDaily(); renderExport(); renderFoot();
   }
 
-  /* ---------------- ТЗ ---------------- */
+  /* ---------------- страховой запас и правило запуска ---------------- */
   function renderTz() {
-    var tz = CONFIG.policy.tzWork.v;
-    $('tzBig').value = tz; $('tzRange').value = tz;
-    var need = CONFIG.oil.intakeKern.v * tz;
+    var sd = CONFIG.policy.safetyDays.v, wd = CONFIG.horizon.workDays.v, cap = CONFIG.oil.intakeKern.v;
+    $('safeBig').value = sd; $('safeRange').value = sd;
     var perDay = CONFIG.kernel.intake.v * (CONFIG.kernel.yKern2.v + CONFIG.kernel.yKern3.v);
-    var days = perDay > 0 ? need / perDay : 0;
     var first = model.switches.filter(function (s) { return s.to === 'kern'; })[0];
     $('tzInfo').innerHTML =
-      'Потребность на завод: <b>' + fmt(CONFIG.oil.intakeKern.v) + ' × ' + fmt(tz) + ' = ' + fmt(need) + ' т</b><br>' +
-      'Ядро копится по <b>' + fmt1(perDay) + ' т/сут</b> → набор за <b>' + fmt1(days) + '</b> рабочих суток<br>' +
-      'Первое переключение на семечку: <b>' + (first ? first.date : 'не наступает') + '</b>';
+      'Нужно на месяц: <b>' + fmt(cap) + ' × ' + fmt(wd) + (sd > 0 ? ' + ' + fmt(cap * sd) : '') +
+      ' = ' + fmt(cap * (wd + sd)) + ' т</b><br>' +
+      'Приход ядра: <b>' + fmt1(perDay) + ' т/сут</b> = <b>' + fmt(perDay * wd) + ' т/мес</b><br>' +
+      'Первый запуск на семечке: <b>' + (first ? first.date : 'не наступает') + '</b>';
   }
 
   /* ---------------- календарь месяцев ---------------- */
   function renderCalendar() {
     var swMonths = {}; model.switches.forEach(function (s) { swMonths[s.month] = 1; });
-    var monthNeed = CONFIG.oil.intakeKern.v * CONFIG.horizon.workDays.v;
     $('calendar').innerHTML = model.months.map(function (m) {
-      var mult = monthNeed > 0 ? m.stockAtStart / monthNeed : 0;
-      var t = 'На 1-е число накоплено ядра ' + fmt(m.stockAtStart) + ' т = ' + fmt1(mult) +
-        ' месячных потребностей (месячная = ' + fmt(monthNeed) + ' т)';
+      var mult = m.need > 0 ? m.available / m.need : 0;
+      var t = 'На 1-е число: остаток ' + fmt(m.stockAtStart) + ' т + приход за месяц ' + fmt(m.planned) +
+        ' т = доступно ' + fmt(m.available) + ' т; нужно ' + fmt(m.need) + ' т → ' +
+        (m.crop === 'kern' ? 'семечка' : 'рапс') +
+        (m.failDay ? '; посуточно не хватило на ' + m.failDay + '-е сутки' : '');
       return '<div class="mchip ' + (m.crop === 'kern' ? 'kern' : 'raps') + (swMonths[m.idx] && m.idx > 0 ? ' sw' : '') + '" title="' + esc(t) + '">' +
         '<div class="mn">' + m.label + '</div><div class="mt">' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</div>' +
         '<div class="mt" style="opacity:.75">' + fmt1(mult) + '×</div></div>';
     }).join('');
     var sw = model.switches.filter(function (s) { return s.from; });
     $('calSum').innerHTML =
+      '<span>Правило: доступное ядро (остаток + приход за месяц) ≥ <b>' + fmt(CONFIG.oil.intakeKern.v *
+        (CONFIG.horizon.workDays.v + CONFIG.policy.safetyDays.v)) + ' т</b> и обеспеченность каждые сутки</span>' +
       '<span>Месяцев на семечке: <b>' + model.kpi.kernMonths + '</b></span>' +
       '<span>на рапсе: <b>' + model.kpi.rapeMonths + '</b></span>' +
       '<span>Смен культуры: <b>' + sw.length + '</b></span>' +
@@ -170,11 +172,13 @@
   function renderKpi() {
     var k = model.kpi, C = CONFIG;
     var perDay = C.kernel.intake.v * (C.kernel.yKern2.v + C.kernel.yKern3.v);
-    var need = C.oil.intakeKern.v * C.policy.tzWork.v;
+    var need = C.oil.intakeKern.v * (C.horizon.workDays.v + C.policy.safetyDays.v);
+    var minDay = model.days.reduce(function (a, r) { return r.stKern2 + r.stKern3 < a.stKern2 + a.stKern3 ? r : a; });
     var first = model.switches.filter(function (s) { return s.to === 'kern'; })[0];
     var items = [
       { c: 'kern', l: 'Приход ядра 2 кат.', v: fmt1(perDay), u: 'т/сут', d: fmt(C.kernel.intake.v) + ' т × ' + (C.kernel.yKern2.v * 100).toFixed(0) + '%' },
-      { c: 'kern', l: 'Потребность на завод', v: fmt(need), u: 'т', d: fmt(C.oil.intakeKern.v) + ' т/сут × ' + fmt(C.policy.tzWork.v) + ' дн' },
+      { c: 'kern', l: 'Нужно на месяц работы', v: fmt(need), u: 'т', d: fmt(C.oil.intakeKern.v) + ' т/сут × ' + fmt(C.horizon.workDays.v + C.policy.safetyDays.v) + ' дн' },
+      { c: 'kern', l: 'Минимум ядра за сезон', v: fmt(minDay.stKern2 + minDay.stKern3), u: 'т', d: minDay.date },
       { c: 'kern', l: 'Первый переход на семечку', v: first ? first.date.slice(0, 5) : '—', u: '', d: first ? first.date : 'не наступает' },
       { c: 'raps', l: 'Закуп рапса за сезон', v: fmt(k.rapeBuy), u: 'т', d: 'семечки ' + fmt(k.seedBuy) + ' т' },
       { c: k.overPeak > 0.5 ? 'bad' : 'ok', l: 'Пик на складах', v: fmt(k.peakStock), u: 'т', d: 'вместимость ' + fmt(model.capTotal) + ' т' },
@@ -559,12 +563,12 @@
   function init() {
     buildRail();
     lastGood = snapshot();
-    $('tzBig').addEventListener('input', function () {
-      var n = parseFloat(this.value); if (!isFinite(n) || n < 1) return;
-      CONFIG.policy.tzWork.v = n; syncRail(); recalc();
+    $('safeBig').addEventListener('input', function () {
+      var n = parseFloat(this.value); if (!isFinite(n) || n < 0) return;
+      CONFIG.policy.safetyDays.v = n; syncRail(); recalc();
     });
-    $('tzRange').addEventListener('input', function () {
-      CONFIG.policy.tzWork.v = +this.value; syncRail(); recalc();
+    $('safeRange').addEventListener('input', function () {
+      CONFIG.policy.safetyDays.v = +this.value; syncRail(); recalc();
     });
     $('dayRange').addEventListener('input', function () { curDay = +this.value; renderDay(); moveMark(); });
     $('expBtn').addEventListener('click', doExport);

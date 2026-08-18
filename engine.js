@@ -2,6 +2,9 @@
    Вход: объект CONFIG (см. config.js). Выход: посуточный ряд, помесячный свод, KPI, точки смены культуры.
    Ни одной числовой константы — всё через cfg. Исключения: 0, 1 и индексы массивов. */
 
+/* допуск сравнения чисел с плавающей точкой — не параметр модели */
+var EPS_T = 1e-9;
+
 /* значение параметра */
 function pv(p) { return p.v; }
 
@@ -106,15 +109,34 @@ function calcModel(cfg) {
 
   /* вложенный капитал и % за деньги считаются в finance() по ячейкам B35:B41 листа «Ядро+масло» */
 
+  var kernDaily = K.intake * (K.yKern2 + K.yKern3);   // плановый приход ядра 2+3 кат. в сутки
+
   for (var m = 0; m < h.months; m++) {
-    /* --- решение о культуре месяца: только на 1-е число --- */
-    var need = O.intakeKern * P.tzWork;              // потребность под работу завода, т
-    var stockKern = stK2 + stK3;                      // накоплено ядра на 1-е число
-    var crop = stockKern >= need ? 'kern' : 'rape';
+    /* --- решение о культуре месяца: только на 1-е число ---
+       Доступное ядро = остаток на складе + плановые поступления за месяц.
+       Запускаемся на семечке, если доступного хватает на полный месяц работы
+       маслоцеха плюс страховой запас, И если маслоцех обеспечен КАЖДЫЕ сутки месяца. */
+    var stockKern = stK2 + stK3;
+    var planned = kernDaily * h.workDays;
+    var available = stockKern + planned;
+    var required = O.intakeKern * (h.workDays + P.safetyDays);
+    var feasible = available >= required - EPS_T;
+    var failDay = 0, minStock = 0;
+    if (feasible) {
+      var probe = stockKern, low = available;
+      for (var t = 1; t <= h.workDays; t++) {
+        probe += kernDaily;                            // приход суток
+        if (probe < O.intakeKern - EPS_T) { feasible = false; failDay = t; break; }
+        probe -= O.intakeKern;                         // переработка суток
+        if (probe < low) low = probe;
+      }
+      minStock = low;
+    }
+    var crop = feasible ? 'kern' : 'rape';
     if (crop !== prevCrop) {
       switches.push({
-        month: m, label: monthLabel(h, m), date: dayLabel(h, m, 1),
-        from: prevCrop, to: crop, stock: stockKern, need: need
+        month: m, label: monthLabel(h, m), date: dayLabel(h, m, 1), from: prevCrop, to: crop,
+        stock: stockKern, planned: planned, available: available, need: required
       });
     }
     prevCrop = crop;
@@ -136,7 +158,8 @@ function calcModel(cfg) {
     var win = Math.min(P.buyWindow, h.workDays);
 
     var M = {
-      idx: m, label: monthLabel(h, m), crop: crop, need: need, stockAtStart: stockKern,
+      idx: m, label: monthLabel(h, m), crop: crop, need: required, stockAtStart: stockKern,
+      planned: planned, available: available, failDay: failDay, minStockPlan: minStock,
       seedIn: 0, kern1: 0, kern2: 0, kern3: 0, husk: 0, kernLoss: 0,
       seedBuy: 0, rapeBuy: 0, oilIntake: 0, oilFromKern: 0, oilFromRape: 0,
       oilSun: 0, mealSun: 0, oilRape: 0, mealRape: 0, oilLoss: 0,

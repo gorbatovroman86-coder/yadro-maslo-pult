@@ -5,6 +5,17 @@ var CONFIG = require('./config.js').CONFIG;
 var calcModel = require('./engine.js').calcModel;
 
 var EPS = 1e-6;
+
+/* ЭТАЛОН. Конкретные величины на исходных параметрах — чтобы тест краснел при любом
+   изменении поведения модели, а не только при логической поломке. Меняются осознанно. */
+var BASELINE = {
+  peakStock: 3893.5,   // пик хранения, т
+  overDays: 0,         // суток с превышением вместимости
+  overPeak: 0,         // максимум сверх вместимости, т
+  minKern: 70.35,      // минимальный остаток ядра за сезон, т
+  kernMonths: 7,       // месяцев на семечке
+  rapeMonths: 3        // месяцев на рапсе
+};
 var results = [];
 function check(id, name, ok, where, detail) {
   results.push({ id: id, name: name, ok: ok, where: where, detail: detail || '' });
@@ -33,16 +44,25 @@ var C = CONFIG, cap = m.capTotal;
       f(Math.min.apply(null, m.days.map(function (r) { return r.stKern2; }))) + ' т');
 
   /* Переполнение складов — осознанное решение владельца: закуп не режем, показываем сигналом.
-     Поэтому проверяем не отсутствие превышения, а то, что оно корректно посчитано и не потеряно. */
+     Проверяем конкретные величины против эталона: изменились цифры — тест обязан покраснеть. */
   var over = m.days.filter(function (r) { return r.pkTotal > cap + EPS; });
-  var wrong = m.days.filter(function (r) {
-    return Math.abs(r.over - Math.max(0, r.pkTotal - cap)) > EPS;
-  });
-  check('1в', 'Превышение вместимости посчитано и просигнализировано', wrong.length === 0 && over.length === m.kpi.overDays,
-    'пульт, красная шапка на графике + плитка «Не хватает места»',
-    over.length ? 'превышение есть и показано: пик ' + f(m.kpi.peakStock) + ' т при вместимости ' + f(cap) +
-      ' т, не влезает до ' + f(m.kpi.overPeak) + ' т в ' + over.length + ' сут (закуп не режем — решение владельца)'
-      : 'превышений нет: пик ' + f(m.kpi.peakStock) + ' т при вместимости ' + f(cap) + ' т');
+  var wrong = m.days.filter(function (r) { return Math.abs(r.over - Math.max(0, r.pkTotal - cap)) > EPS; });
+  var diff = [];
+  if (Math.abs(m.kpi.peakStock - BASELINE.peakStock) > 1) diff.push('пик хранения ' + m.kpi.peakStock.toFixed(1) + ' вместо ' + BASELINE.peakStock);
+  if (over.length !== BASELINE.overDays) diff.push('суток превышения ' + over.length + ' вместо ' + BASELINE.overDays);
+  if (Math.abs(m.kpi.overPeak - BASELINE.overPeak) > 1) diff.push('максимум сверх ' + m.kpi.overPeak.toFixed(1) + ' вместо ' + BASELINE.overPeak);
+  if (wrong.length) diff.push('превышение посчитано неверно в ' + wrong.length + ' сут');
+  check('1в', 'Вместимость: пик и суточное превышение совпадают с эталоном', diff.length === 0,
+    'пульт, красная шапка на графике; эталон — BASELINE в tests.js',
+    diff.length ? 'РАСХОЖДЕНИЕ С ЭТАЛОНОМ: ' + diff.join('; ') + ' — если изменение осознанное, обновите BASELINE'
+      : 'пик ' + f(m.kpi.peakStock) + ' т при вместимости ' + f(cap) + ' т, суток превышения ' + over.length +
+        ', максимум сверх ' + f(m.kpi.overPeak) + ' т — как в эталоне');
+
+  var minK = Math.min.apply(null, m.days.map(function (r) { return r.stKern2 + r.stKern3; }));
+  var minDay = m.days.filter(function (r) { return Math.abs(r.stKern2 + r.stKern3 - minK) < EPS; })[0];
+  check('1г', 'Минимальный остаток ядра за сезон совпадает с эталоном', Math.abs(minK - BASELINE.minKern) < 1 && minK >= -EPS,
+    'пульт, плитка «Минимум ядра за сезон»',
+    'минимум ' + minK.toFixed(2) + ' т (' + minDay.date + '), эталон ' + BASELINE.minKern + ' т');
 })();
 
 /* --- 2. Выходы завода ядра --- */
@@ -106,18 +126,42 @@ var C = CONFIG, cap = m.capTotal;
     f(buy) + ' т закупа = ' + f(use) + ' т переработки + ' + f(end) + ' т остатка');
 })();
 
-/* --- 7. Чувствительность к ТЗ --- */
+/* --- 7. Правило переключения и страховой запас --- */
 (function () {
-  var runs = [10, 27, 45, 60].map(function (tz) {
-    var c = clone(CONFIG); c.policy.tzWork.v = tz;
+  var pattern = function (r) { return r.months.map(function (x) { return x.crop === 'kern' ? 'С' : 'Р'; }).join(''); };
+  var runs = [0, 3, 5].map(function (sd) {
+    var c = clone(CONFIG); c.policy.safetyDays.v = sd;
     var r = calcModel(c);
-    var first = r.switches.filter(function (s) { return s.to === 'kern'; })[0];
-    return { tz: tz, date: first ? first.date : 'нет', months: r.kpi.kernMonths };
+    return { sd: sd, p: pattern(r), kern: r.kpi.kernMonths, idle: r.kpi.idle };
   });
-  var uniq = {}; runs.forEach(function (r) { uniq[r.date] = 1; });
-  check('7', 'ТЗ сдвигает дату первого переключения на семечку', Object.keys(uniq).length > 1,
-    'пульт, поле «ТЗ сырья под работу завода»',
-    runs.map(function (r) { return 'ТЗ ' + r.tz + ' дн → ' + r.date + ' (' + r.months + ' мес семечки)'; }).join('; '));
+  var uniq = {}; runs.forEach(function (r) { uniq[r.p] = 1; });
+  check('7', 'Страховой запас сдвигает календарь работы завода', Object.keys(uniq).length > 1,
+    'пульт, поле «Страховой запас ядра»',
+    runs.map(function (r) { return r.sd + ' дн → ' + r.p + ' (семечка ' + r.kern + ' мес)'; }).join('; ') +
+    ' | С — семечка, Р — рапс');
+
+  var base = calcModel(CONFIG);
+  check('7б', 'Календарь совпадает с эталоном по числу месяцев',
+    base.kpi.kernMonths === BASELINE.kernMonths && base.kpi.rapeMonths === BASELINE.rapeMonths,
+    'пульт, календарь работы завода масла',
+    'семечка ' + base.kpi.kernMonths + ' / рапс ' + base.kpi.rapeMonths +
+    ' (эталон ' + BASELINE.kernMonths + ' / ' + BASELINE.rapeMonths + ')');
+
+  /* баланс масс: больше, чем позволяет приход ядра, месяцев семечки быть не может */
+  var K = CONFIG.kernel, H = CONFIG.horizon;
+  var kernSeason = K.intake.v * (K.yKern2.v + K.yKern3.v) * H.workDays.v * H.months.v;
+  var monthNorm = CONFIG.oil.intakeKern.v * H.workDays.v;
+  var ceiling = Math.floor(kernSeason / monthNorm);
+  check('7в', 'Месяцев на семечке не больше, чем позволяет приход ядра', base.kpi.kernMonths <= ceiling,
+    'баланс масс: приход ядра ÷ месячная норма маслоцеха',
+    'ядра за сезон ' + f(kernSeason) + ' т ÷ ' + f(monthNorm) + ' т = ' +
+    (kernSeason / monthNorm).toFixed(2) + ' → потолок ' + ceiling + ' мес, в модели ' + base.kpi.kernMonths);
+
+  var badIdle = base.months.filter(function (x) { return x.crop === 'kern' && x.idle > EPS; });
+  check('7г', 'В месяцы семечки маслоцех обеспечен каждые сутки', badIdle.length === 0,
+    'engine.js, посуточная проверка перед запуском месяца',
+    badIdle.length ? 'простой в месяцах: ' + badIdle.map(function (x) { return x.label; }).join(', ')
+      : 'простоя нет ни в одном из ' + base.kpi.kernMonths + ' месяцев семечки');
 })();
 
 /* --- 8. Числа вне CONFIG --- */
@@ -129,7 +173,7 @@ var C = CONFIG, cap = m.capTotal;
   var inLabel = false, hits = [];
   lines.forEach(function (raw, i) {
     /* подписи дат и тексты сообщений об ошибках — не расчёт */
-    if (/^function (monthLabel|dayLabel|monthOf|validate)/.test(raw)) inLabel = true;
+    if (/^function (monthLabel|dayLabel|monthOf|validate)/.test(raw) || /^var EPS_T/.test(raw)) inLabel = true;
     else if (/^(function|var|if )/.test(raw)) inLabel = false;
     var line = noComment[i].replace(/\/\/.*$/, '').replace(/'[^']*'/g, "''");
     var re = /(?<![\w.$])(\d+(?:\.\d+)?)/g, mm;
@@ -145,7 +189,7 @@ var C = CONFIG, cap = m.capTotal;
     calc.length ? 'в расчёте найдены литералы: ' + calc.map(function (h) { return h.n + ' (стр. ' + h.line + ')'; }).join(', ')
       : 'в расчётных формулах литералов нет; вне расчёта остались только ' +
       hits.map(function (h) { return h.n + ' (стр. ' + h.line + ', ' + h.code.slice(0, 40) + ')'; }).join('; ') +
-      ' — это подписи дат и тексты ошибок, не параметры модели');
+      ' — это подписи дат, тексты ошибок и допуск сравнения, не параметры модели');
 })();
 
 /* --- 9. Цены собираются формулой из составляющих --- */
