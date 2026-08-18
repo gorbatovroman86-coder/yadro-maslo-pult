@@ -295,10 +295,13 @@ var C = CONFIG, cap = m.capTotal;
     var r = calcModel(c), k = r.kpi;
     var rest = Math.abs(k.endKern2) + Math.abs(k.endKern3) + Math.abs(k.endRape);
     if (rest > 0.01) bad.push(mo.n + ': остаток ' + rest.toFixed(3) + ' т');
-    if (k.idle > 0.01) bad.push(mo.n + ': простой ' + k.idle.toFixed(1) + ' т');
-    info.push(mo.n + ' → ' + (k.profit / 1e6).toFixed(1) + ' млн, продано ядра 2 кат. ' + f(k.sellKern2) + ' т');
+    /* простой допустим только как намеренно срезанный хвост сезона */
+    if (k.idle > (k.tailCut || 0) + 0.01)
+      bad.push(mo.n + ': простой ' + k.idle.toFixed(1) + ' т сверх срезанного хвоста ' + (k.tailCut || 0).toFixed(1) + ' т');
+    info.push(mo.n + ' → ' + (k.profit / 1e6).toFixed(1) + ' млн, продано ядра 2 кат. ' + f(k.sellKern2) +
+      ' т, простой ' + f(k.idle) + ' т = срезанный хвост ' + f(k.tailCut || 0) + ' т');
   });
-  check('14', 'Любой режим закрытия сезона обнуляет остаток и не даёт простоя', bad.length === 0,
+  check('14', 'Любой режим закрытия обнуляет остаток, простой — только срезанный хвост', bad.length === 0,
     'пульт, поля «Остановка обрушки» и «Излишек ядра 2 кат. продаём»',
     bad.length ? bad.join('; ') : info.join('; '));
 })();
@@ -395,6 +398,35 @@ var C = CONFIG, cap = m.capTotal;
   check('20', 'В режиме «только рапс» маслоцех загружен на всю мощность', Math.abs(used - full) < 0.01 && k.idle < 0.01,
     'engine.js, план закупа рапса в последнем месяце',
     'переработано ' + f(used) + ' из ' + f(full) + ' т мощности, простой ' + f(k.idle) + ' т');
+})();
+
+/* --- 21. Хвост сезона: остатка меньше порога пуска не бывает --- */
+(function () {
+  var P = CONFIG.policy, O = CONFIG.oil;
+  var minK = O.intakeKern.v * P.minRunDays.v, minR = O.intakeRape.v * P.minRunDays.v;
+  var endK = m.kpi.endKern2 + m.kpi.endKern3, endR = m.kpi.endRape;
+  var bad = [];
+  if (endK > 0.01 && endK < minK) bad.push('ядро 2 кат.: остаток ' + f(endK) + ' т при пороге ' + f(minK) + ' т');
+  if (endR > 0.01 && endR < minR) bad.push('рапс: остаток ' + f(endR) + ' т при пороге ' + f(minR) + ' т');
+  /* и в последнем месяце малой культуры быть не должно: либо ноль, либо не меньше порога */
+  var L = m.months[m.months.length - 1];
+  if (L.oilFromRape > 0.01 && L.oilFromRape < minR) bad.push('в последнем месяце рапса ' + f(L.oilFromRape) + ' т — меньше порога');
+  if (L.oilFromKern > 0.01 && L.oilFromKern < minK) bad.push('в последнем месяце ядра ' + f(L.oilFromKern) + ' т — меньше порога');
+  check('21', 'Остатка меньше порога пуска не возникает ни по одной культуре', bad.length === 0,
+    'пульт, поле «Минимальный объём для пуска маслоцеха»',
+    bad.length ? bad.join('; ') : 'порог ' + P.minRunDays.v + ' дн = ' + f(minR) + ' т; на конец горизонта ядро ' +
+      endK.toFixed(3) + ' т, рапс ' + endR.toFixed(3) + ' т; в последнем месяце рапс ' + f(L.oilFromRape) +
+      ' т, ядро ' + f(L.oilFromKern) + ' т; срезано закупа ' + f(m.kpi.tailCut) + ' т');
+})();
+
+/* --- 22. Порог выключен — правило не вмешивается --- */
+(function () {
+  var c = clone(CONFIG); c.policy.minRunDays.v = 0;
+  var r = calcModel(c), L = r.months[r.months.length - 1];
+  check('22', 'При нулевом пороге хвост дожимается, как раньше', r.kpi.tailCut < 0.01 && L.mixDays === 1,
+    'пульт, поле «Минимальный объём для пуска маслоцеха» = 0',
+    'срезано ' + f(r.kpi.tailCut) + ' т, переключений в последнем месяце ' + L.mixDays +
+    ', рапса дожато ' + f(L.oilFromRape) + ' т');
 })();
 
 /* --- вывод --- */

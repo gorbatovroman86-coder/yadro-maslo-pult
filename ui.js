@@ -13,7 +13,7 @@
     { title: 'Выходы завода масла', f: ['oil.kernOil', 'oil.kernTotal', 'oil.rapeOil', 'oil.rapeTotal'] },
     { title: 'Склады и правила', f: ['storage.startKern2', 'storage.startKern3', 'storage.startRape',
         'policy.buyWindow', 'policy.rapeBuffer', 'policy.emptyMonth'] },
-    { title: 'Сценарии закрытия и сбыта', f: ['policy.kernStop', 'policy.sellKern2', 'policy.rapeOnly',
+    { title: 'Сценарии закрытия и сбыта', f: ['policy.kernStop', 'policy.minRunDays', 'policy.sellKern2', 'policy.rapeOnly',
         'policy.rapeLimit', 'policy.kern2Limit'] },
     { title: 'Горизонт', f: ['horizon.startYear', 'horizon.startMonth', 'horizon.months', 'horizon.workDays'] },
     { title: 'Цены: составляющие', f: ['priceParts.cnyRate', 'priceParts.coefOn', 'priceParts.coefNum', 'priceParts.coefDen',
@@ -39,7 +39,7 @@
     'storage.count': 'Складов', 'storage.capacity': 'Ёмкость склада',
     'storage.startKern2': 'Остаток ядра 2', 'storage.startKern3': 'Остаток ядра 3', 'storage.startRape': 'Остаток рапса',
     'policy.safetyDays': 'Страховой запас', 'policy.buyWindow': 'Окно закупа',
-    'policy.kernStop': 'Стоп обрушки', 'policy.sellKern2': 'Излишек ядра на сторону',
+    'policy.kernStop': 'Стоп обрушки', 'policy.minRunDays': 'Мин. объём для пуска', 'policy.sellKern2': 'Излишек ядра на сторону',
     'policy.rapeOnly': 'Только рапс', 'policy.rapeLimit': 'Лимит рапса за сезон',
     'policy.kern2Limit': 'Лимит продажи ядра',
     'policy.emptyMonth': 'Ядро кончилось', 'policy.rapeBuffer': 'Страховой рапс',
@@ -207,9 +207,13 @@
     /* простой завода — сигнал живёт здесь, при нуле его нет вовсе */
     var idle = model.kpi.idle;
     var bad = model.months.filter(function (m) { return m.idle > 0.5; });
+    var tail = model.kpi.tailCut || 0;
     $('calIdle').innerHTML = idle > 0.5
-      ? '⚠ <b>Простой завода масла: ' + fmt(idle) + ' т</b> за сезон — не хватило сырья в месяцах: ' +
-        bad.map(function (m) { return m.label + ' (' + fmt(m.idle) + ' т)'; }).join(', ')
+      ? '⚠ <b>Простой завода масла: ' + fmt(idle) + ' т</b> за сезон — ' +
+        bad.map(function (m) { return m.label + ' (' + fmt(m.idle) + ' т)'; }).join(', ') +
+        (tail > 0.5 ? '. Из них <b>' + fmt(tail) + ' т</b> — хвост сезона: закуп рапса срезан по правилу ' +
+          'минимального пуска (' + fmt(CONFIG.policy.minRunDays.v) + ' дн = ' +
+          fmt(CONFIG.oil.intakeRape.v * CONFIG.policy.minRunDays.v) + ' т), чтобы не запускать завод ради малого объёма' : '')
       : '';
   }
 

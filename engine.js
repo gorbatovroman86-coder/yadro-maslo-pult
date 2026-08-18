@@ -107,6 +107,7 @@ function calcModel(cfg) {
   var days = [], months = [], switches = [];
   var prevCrop = null;
   var boughtRape = 0, soldKern2 = 0;                  // накопительно, для сезонных лимитов
+  var tailCut = 0;                                    // срезанный хвост закупа в последнем месяце
 
   /* вложенный капитал и % за деньги считаются в finance() по ячейкам B35:B41 листа «Ядро+масло» */
 
@@ -162,6 +163,13 @@ function calcModel(cfg) {
       var kernDays = (P.rapeOnly || O.intakeKern <= 0) ? 0 : (stockKern + plannedKern) / O.intakeKern;
       var freeDays = Math.max(0, h.workDays - kernDays);
       rapeNeed = Math.max(0, freeDays * O.intakeRape - stRape);
+      /* ХВОСТ СЕЗОНА: пускать маслоцех ради объёма меньше порога нецелесообразно —
+         не создаём этот остаток вовсе, срезая последний закуп рапса. */
+      var minRun = O.intakeRape * P.minRunDays;
+      if (P.minRunDays > 0 && rapeNeed + stRape > 0 && rapeNeed + stRape < minRun) {
+        tailCut = rapeNeed;
+        rapeNeed = 0;
+      }
     } else if (crop === 'rape') {
       rapeNeed = Math.max(0, rapeMonth - stRape);          // докуп до месячной потребности
     } else if (P.rapeBuffer) {
@@ -180,7 +188,7 @@ function calcModel(cfg) {
     var winRape = isLast ? 1 : win;
 
     var M = {
-      idx: m, label: monthLabel(h, m), crop: crop, need: required, stockAtStart: stockKern,
+      idx: m, label: monthLabel(h, m), crop: crop, need: required, stockAtStart: stockKern, tailCut: tailCut,
       planned: planned, available: available, failDay: failDay, minStockPlan: minStock,
       seedIn: 0, kern1: 0, kern2: 0, kern3: 0, husk: 0, kernLoss: 0,
       seedBuy: 0, rapeBuy: 0, oilIntake: 0, oilFromKern: 0, oilFromRape: 0,
@@ -377,6 +385,7 @@ function kpi(days, months, c) {
     kern2: sum(months, function (m) { return m.kern2; }),
     sellKern2: sum(months, function (m) { return m.sellKern2; }),
     capitalAvg: months.reduce(function (a, m) { return a + m.capital; }, 0) / Math.max(1, months.length),
+    tailCut: months.reduce(function (a, m) { return a + (m.tailCut || 0); }, 0),
     husk: sum(months, function (m) { return m.husk; }),
     oilSun: sum(months, function (m) { return m.oilSun; }),
     mealSun: sum(months, function (m) { return m.mealSun; }),
