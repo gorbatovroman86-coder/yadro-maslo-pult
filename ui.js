@@ -22,10 +22,11 @@
         'priceParts.rapeOilLog', 'priceParts.rapeMealCny', 'priceParts.rapeMealLog',
         'prices.buySeed', 'prices.buyRape', 'prices.kern2', 'prices.husk'] },
     { title: 'Отгрузка', f: ['freight.kern1', 'freight.oil', 'freight.meal'] },
-    { title: 'Финансы', f: ['finance.vatGoods', 'finance.vatService', 'finance.moneyRate', 'finance.stockMonths',
+    { title: 'Финансы', f: ['finance.moneyRate', 'finance.stockMonths',
         'finance.apMonths', 'finance.arMonths', 'finance.monthsYear', 'finance.profitTax'] },
     { title: 'Расчётные значения', f: ['kernel.yKern2', 'oil.kernMeal', 'oil.kernLoss', 'oil.rapeMeal', 'oil.rapeLoss',
-        'prices.kern1', 'prices.sunOil', 'prices.sunMeal', 'prices.rapeOil', 'prices.rapeMeal'] }
+        'prices.kern1', 'prices.sunOil', 'prices.sunMeal', 'prices.rapeOil', 'prices.rapeMeal',
+        'finance.vatGoods', 'finance.vatService'] }
   ];
   /* короткие подписи для узкой панели; полное название и источник — в подсказке */
   var SHORT = {
@@ -58,7 +59,7 @@
     'prices.kern1': 'Ядро 1 кат.', 'prices.sunOil': 'Масло подсолн.', 'prices.sunMeal': 'Жмых подсолн.',
     'prices.rapeOil': 'Масло рапсовое', 'prices.rapeMeal': 'Жмых рапсовый',
     'freight.kern1': 'Ядро 1 кат.', 'freight.oil': 'Масло', 'freight.meal': 'Жмых',
-    'finance.vatGoods': 'НДС товар', 'finance.vatService': 'НДС услуги', 'finance.moneyRate': '% за деньги',
+    'finance.vatGoods': 'НДС товар (закон)', 'finance.vatService': 'НДС услуги (закон)', 'finance.moneyRate': 'Ставка за деньги',
     'finance.stockMonths': 'Запас сырья', 'finance.apMonths': 'КЗ', 'finance.arMonths': 'ДЗ',
     'finance.monthsYear': 'Месяцев в году', 'finance.profitTax': 'Налог на прибыль'
   };
