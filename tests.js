@@ -277,7 +277,7 @@ var C = CONFIG, cap = m.capTotal;
   var d1 = Math.abs(inSeed - procSeed), d2 = Math.abs(inRape - usedRape), d3 = Math.abs(kernIn - kernUsed);
   check('13', 'Всё закупленное переработано или продано, остатка нет', d1 < 0.01 && d2 < 0.01 && d3 < 0.01,
     'пульт, таблица «Потоки»',
-    'ядро 2 кат.: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
+    'семечка: закуп ' + f(inSeed) + ' = обрушено ' + f(procSeed) + ' (Δ ' + d1.toFixed(4) + '); ' +
     'рапс: закуп ' + f(inRape) + ' = переработано ' + f(usedRape) + ' (Δ ' + d2.toFixed(4) + '); ' +
     'ядро: на склад ' + f(kernIn) + ' = в маслоцех и на сторону ' + f(kernUsed) + ' (Δ ' + d3.toFixed(4) + ')');
 })();
@@ -462,6 +462,35 @@ var C = CONFIG, cap = m.capTotal;
         ', маслоцех ' + now.oilKern + '/' + now.oilRape + ', страховой запас ' + now.safetyDays +
         ', порог пуска ' + now.minRunDays + ', ставки ' + now.procKern + '/' + now.procOil +
         ', коэффициент ' + (now.coefOn ? 'вкл' : 'выкл'));
+})();
+
+/* --- 24. Семечка: закуп равен обрушке, остатка нет ни при каких параметрах --- */
+(function () {
+  var cases = [
+    { n: 'базовые параметры', o: {} },
+    { n: 'обрушка без остановки', o: { 'policy.kernStop': 0 } },
+    { n: 'остановка 45 сут', o: { 'policy.kernStop': 45 } },
+    { n: 'только рапс', o: { 'policy.rapeOnly': 1, 'policy.kernStop': 0, 'policy.rapeBuffer': 0 } },
+    { n: 'заход 140 т/сут', o: { 'kernel.intake': 140 } },
+    { n: 'горизонт 6 мес', o: { 'horizon.months': 6, 'policy.kernStop': 10 } }
+  ];
+  var bad = [], info = [];
+  cases.forEach(function (cs) {
+    var c = clone(CONFIG);
+    Object.keys(cs.o).forEach(function (p) { var a = p.split('.'); c[a[0]][a[1]].v = cs.o[p]; });
+    var r = calcModel(c);
+    var buy = r.kpi.seedBuy, crushed = r.days.reduce(function (a, x) { return a + x.seedIn; }, 0);
+    if (Math.abs(buy - crushed) > 0.01) bad.push(cs.n + ': закуп ' + f(buy) + ' против обрушки ' + f(crushed));
+    /* помесячно тоже, а не только в итоге */
+    r.months.forEach(function (m) {
+      var inn = r.days.filter(function (x) { return x.month === m.idx; }).reduce(function (a, x) { return a + x.seedIn; }, 0);
+      if (Math.abs(m.seedBuy - inn) > 0.01) bad.push(cs.n + ', ' + m.label + ': закуп ' + f(m.seedBuy) + ' против ' + f(inn));
+    });
+    info.push(cs.n + ' — ' + f(buy) + ' т');
+  });
+  check('24', 'Закуп семечки равен обрушке в каждом месяце, остатка семечки нет', bad.length === 0,
+    'engine.js: seedNeed = мощность × рабочие сутки обрушки этого месяца',
+    bad.length ? bad.slice(0, 4).join('; ') : 'проверено ' + cases.length + ' наборов параметров: ' + info.join('; '));
 })();
 
 /* --- вывод --- */
