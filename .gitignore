@@ -11,6 +11,20 @@ _backup_yadro/
 yadro-maslo-pult_*.html
 *.bak
 
+# секреты — никогда в репозиторий
+access.md
+.env
+.env.*
+*.key
+*.pem
+*secret*
+*token*
+credentials*
+
+# служебное python
+__pycache__/
+*.pyc
+
 # macOS
 .DS_Store
 ._*
