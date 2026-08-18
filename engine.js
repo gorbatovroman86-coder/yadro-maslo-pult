@@ -64,8 +64,9 @@ function validate(cfg) {
       if (typeof p.v !== 'number') return;
       if (!isFinite(p.v)) { e.push('«' + p.label + '»: не число'); return; }
       if (p.int && p.v !== Math.round(p.v)) e.push('«' + p.label + '»: только целое число, введено ' + p.v);
-      if (p.min !== undefined && p.v < p.min) e.push('«' + p.label + '»: не меньше ' + p.min + ', введено ' + p.v);
-      if (p.max !== undefined && p.v > p.max) e.push('«' + p.label + '»: не больше ' + p.max + ', введено ' + p.v);
+      var show = function (x) { return p.k === 'pct' ? (x * 100) + ' %' : p.k === 'vat' ? ((x - 1) * 100) + ' %' : x; };
+      if (p.min !== undefined && p.v < p.min) e.push('«' + p.label + '»: не меньше ' + show(p.min) + ', введено ' + show(p.v));
+      if (p.max !== undefined && p.v > p.max) e.push('«' + p.label + '»: не больше ' + show(p.max) + ', введено ' + show(p.v));
     });
   });
   var sumK = K.yKern1.v + K.yKern3.v + K.yHusk.v + K.yLoss.v;

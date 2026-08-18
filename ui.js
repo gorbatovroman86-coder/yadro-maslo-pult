@@ -20,7 +20,7 @@
         'priceParts.kern1Cny', 'priceParts.kern1Grade', 'priceParts.kern1Log', 'priceParts.sunOilCny',
         'priceParts.sunOilLog1', 'priceParts.sunOilLog2', 'priceParts.sunMealBase', 'priceParts.rapeOilCny',
         'priceParts.rapeOilLog', 'priceParts.rapeMealCny', 'priceParts.rapeMealLog',
-        'prices.buySeed', 'prices.buyRape', 'prices.husk'] },
+        'prices.buySeed', 'prices.buyRape', 'prices.kern2', 'prices.husk'] },
     { title: 'Отгрузка', f: ['freight.kern1', 'freight.oil', 'freight.meal'] },
     { title: 'Финансы', f: ['finance.vatGoods', 'finance.vatService', 'finance.moneyRate', 'finance.stockMonths',
         'finance.apMonths', 'finance.arMonths', 'finance.monthsYear', 'finance.profitTax'] },
@@ -54,6 +54,7 @@
     'priceParts.rapeOilLog': 'Масло рапс., логистика', 'priceParts.rapeMealCny': 'Жмых рапс., ¥',
     'priceParts.rapeMealLog': 'Жмых рапс., логистика',
     'prices.buySeed': 'Закуп ядра 2 кат.', 'prices.buyRape': 'Закуп рапса', 'prices.husk': 'Продажа лузги',
+    'prices.kern2': 'Продажа П/Ф на сторону',
     'prices.kern1': 'Ядро 1 кат.', 'prices.sunOil': 'Масло подсолн.', 'prices.sunMeal': 'Жмых подсолн.',
     'prices.rapeOil': 'Масло рапсовое', 'prices.rapeMeal': 'Жмых рапсовый',
     'freight.kern1': 'Ядро 1 кат.', 'freight.oil': 'Масло', 'freight.meal': 'Жмых',
@@ -81,7 +82,25 @@
       Object.keys(CONFIG[g]).forEach(function (k) { if (CONFIG[g][k] && CONFIG[g][k].label) fn(g, k, CONFIG[g][k]); });
     });
   }
-  var STEP = { 'доля': 0.01, 'коэф': 0.01, 'год': 0.005, '₽/т': 100, 'т': 100, 'т/сут': 5, 'мес': 0.5 };
+  /* ---- числа: разряды неразрывным пробелом, доли и НДС — в процентах ---- */
+  function num(v, dec) {
+    return v.toLocaleString('ru-RU', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec === undefined ? 4 : dec });
+  }
+  /* значение параметра в том виде, в каком его видит и вводит человек */
+  function dispVal(p) {
+    if (typeof p.v !== 'number') return p.v;
+    if (p.k === 'pct') return num(Math.round(p.v * 1e6) / 1e4);
+    if (p.k === 'vat') return num(Math.round((p.v - 1) * 1e6) / 1e4);
+    return num(p.v);
+  }
+  /* обратное преобразование: принимаем и с пробелами, и без, и с точкой вместо запятой */
+  function parseVal(p, str) {
+    var n = parseFloat(String(str).replace(/[\s\u00A0\u202F]/g, '').replace(',', '.'));
+    if (!isFinite(n)) return null;
+    if (p.k === 'pct') return n / 100;
+    if (p.k === 'vat') return 1 + n / 100;
+    return n;
+  }
 
   var DEFAULTS = JSON.parse(JSON.stringify(CONFIG));
   var model = null, curDay = 0;
@@ -102,7 +121,7 @@
         } else if (p.u === '0/1') {
           ctl = '<input type="checkbox" id="' + id + '"' + (p.v ? ' checked' : '') + '>';
         } else {
-          ctl = '<input type="number" id="' + id + '" value="' + fmtVal(p) + '" step="' + (STEP[p.u] || 1) + '"' +
+          ctl = '<input type="text" inputmode="decimal" id="' + id + '" value="' + esc(dispVal(p)) + '"' +
             (p.d ? ' readonly tabindex="-1"' : '') + '>' + (p.u ? '<i>' + esc(p.u) + '</i>' : '');
         }
         html += '<label class="fld' + wide + (p.d ? ' derived' : '') + '" title="' + (p.d ? 'Расчётное поле. ' : '') +
@@ -124,8 +143,13 @@
         el.addEventListener('change', function () {
           if (el.type === 'checkbox') p.v = el.checked ? 1 : 0;
           else if (el.tagName === 'SELECT') p.v = el.value;
-          else { var n = parseFloat(el.value); if (!isFinite(n)) { el.value = p.v; return; } p.v = n; }
+          else {
+            var n = parseVal(p, el.value);
+            if (n === null) { el.value = dispVal(p); return; }
+            p.v = n;
+          }
           recalc();
+          syncRail();                       // форматирование применяем после ввода
         });
       });
     });
@@ -134,15 +158,12 @@
       syncRail(); recalc();
     });
   }
-  /* расчётные величины показываем округлённо, введённые — как есть */
-  function fmtVal(p) {
-    if (typeof p.v !== 'number') return p.v;
-    return p.d ? Math.round(p.v * 10000) / 10000 : p.v;
-  }
   function syncRail() {
     eachParam(function (g, k, p) {
       var el = $('p_' + g + '_' + k); if (!el) return;
-      if (el.type === 'checkbox') el.checked = !!p.v; else el.value = fmtVal(p);
+      if (el.type === 'checkbox') el.checked = !!p.v;
+      else if (el.tagName === 'SELECT') el.value = p.v;
+      else el.value = dispVal(p);
     });
   }
 
@@ -258,14 +279,16 @@
     var P0 = CONFIG.prices.kern2.v, parity = parityPrice();
     $('k2card').innerHTML =
       '<div class="k2row"><span class="k2lab">Цена ядра 2 кат. (П/Ф)</span>' +
-      '<span class="k2price"><input type="number" id="k2price" step="500" value="' + Math.round(P0 * 100) / 100 + '"><small>₽/т с НДС</small></span>' +
+      '<span class="k2price"><input type="text" inputmode="decimal" id="k2price" value="' +
+      num(Math.round(P0 * 100) / 100, 2) + '"><small>₽/т с НДС</small></span>' +
       '<span class="k2warn">не подтверждена</span>' +
       '<span class="k2par">паритет <b>' + fmt(parity) + ' ₽/т</b> при ставке ' + fmt(CONFIG.oil.procCost.v) +
       ' ₽/т — выгоднее <b>' + (P0 > parity ? 'продать' : 'отжать') + '</b></span>' +
       '<span class="k2hint">сетка «цена × ставка» — в выгрузке, лист «Сценарный анализ»</span></div>';
     $('k2price').addEventListener('change', function () {
-      var n = parseFloat(this.value); if (!isFinite(n) || n < 0) { this.value = CONFIG.prices.kern2.v; return; }
-      CONFIG.prices.kern2.v = n; syncRail(); recalc();
+      var n = parseVal(CONFIG.prices.kern2, this.value);
+      if (n === null || n < 0) { this.value = num(CONFIG.prices.kern2.v, 2); return; }
+      CONFIG.prices.kern2.v = n; recalc(); syncRail();
     });
   }
   /* ставка второго передела, при которой отжать = продать */
@@ -744,7 +767,12 @@
 
     /* лист параметров с источниками */
     var pa = [[{ v: 'Группа', b: true }, { v: 'Параметр', b: true }, { v: 'Значение', b: true }, { v: 'Ед.', b: true }, { v: 'Источник', b: true }]];
-    eachParam(function (g, k, p) { pa.push([GROUP_TITLES[g] || g, p.label, p.v, p.u, p.src]); });
+    eachParam(function (g, k, p) {
+      var v = typeof p.v === 'number'
+        ? (p.k === 'pct' ? Math.round(p.v * 1e6) / 1e4 : p.k === 'vat' ? Math.round((p.v - 1) * 1e6) / 1e4 : p.v)
+        : p.v;
+      pa.push([GROUP_TITLES[g] || g, p.label, v, p.u, p.src]);
+    });
     var parSheet = { name: 'Параметры', widths: [22, 38, 14, 8, 52], rows: pa };
 
     XLSXLite.download('Ядро_Масло_' + (scope === 'all' ? 'сезон' : model.months[+scope].label) + '.xlsx',

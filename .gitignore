@@ -6,6 +6,11 @@
 БДР*
 ~$*
 
+# бэкапы и однофайловые снимки — в репозиторий не уходят
+_backup_yadro/
+yadro-maslo-pult_*.html
+*.bak
+
 # macOS
 .DS_Store
 ._*
