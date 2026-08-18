@@ -13,6 +13,8 @@
     { title: 'Выходы завода масла', f: ['oil.kernOil', 'oil.kernTotal', 'oil.rapeOil', 'oil.rapeTotal'] },
     { title: 'Склады и правила', f: ['storage.startKern2', 'storage.startKern3', 'storage.startRape',
         'policy.buyWindow', 'policy.rapeBuffer', 'policy.emptyMonth'] },
+    { title: 'Сценарии закрытия и сбыта', f: ['policy.kernStop', 'policy.sellKern2', 'policy.rapeOnly',
+        'policy.rapeLimit', 'policy.kern2Limit'] },
     { title: 'Горизонт', f: ['horizon.startYear', 'horizon.startMonth', 'horizon.months', 'horizon.workDays'] },
     { title: 'Цены: составляющие', f: ['priceParts.cnyRate', 'priceParts.coefOn', 'priceParts.coefNum', 'priceParts.coefDen',
         'priceParts.kern1Cny', 'priceParts.kern1Grade', 'priceParts.kern1Log', 'priceParts.sunOilCny',
@@ -37,6 +39,9 @@
     'storage.count': 'Складов', 'storage.capacity': 'Ёмкость склада',
     'storage.startKern2': 'Остаток ядра 2', 'storage.startKern3': 'Остаток ядра 3', 'storage.startRape': 'Остаток рапса',
     'policy.safetyDays': 'Страховой запас', 'policy.buyWindow': 'Окно закупа',
+    'policy.kernStop': 'Стоп обрушки', 'policy.sellKern2': 'Излишек ядра на сторону',
+    'policy.rapeOnly': 'Только рапс', 'policy.rapeLimit': 'Лимит рапса за сезон',
+    'policy.kern2Limit': 'Лимит продажи ядра',
     'policy.emptyMonth': 'Ядро кончилось', 'policy.rapeBuffer': 'Страховой рапс',
     'horizon.startYear': 'Год старта', 'horizon.startMonth': 'Месяц старта',
     'horizon.months': 'Месяцев', 'horizon.workDays': 'Рабочих суток',
@@ -209,6 +214,13 @@
       '<span>на рапсе: <b>' + model.kpi.rapeMonths + '</b></span>' +
       '<span>Смен культуры: <b>' + sw.length + '</b></span>' +
       '<span>Даты смен: <b>' + (sw.length ? sw.map(function (s) { return s.date; }).join(' · ') : '—') + '</b></span>';
+    /* простой завода — сигнал живёт здесь, при нуле его нет вовсе */
+    var idle = model.kpi.idle;
+    var bad = model.months.filter(function (m) { return m.idle > 0.5; });
+    $('calIdle').innerHTML = idle > 0.5
+      ? '⚠ <b>Простой завода масла: ' + fmt(idle) + ' т</b> за сезон — не хватило сырья в месяцах: ' +
+        bad.map(function (m) { return m.label + ' (' + fmt(m.idle) + ' т)'; }).join(', ')
+      : '';
   }
 
   /* ---------------- сигнал по вместимости ---------------- */
@@ -222,35 +234,8 @@
       '. Вместимость ' + fmt(model.capTotal) + ' т (' + CONFIG.storage.count.v + ' × ' + fmt(CONFIG.storage.capacity.v) + ' т), пик ' + fmt(k.peakStock) + ' т.';
   }
 
-  /* ---------------- KPI ---------------- */
-  function renderKpi() {
-    var k = model.kpi, C = CONFIG;
-    var perDay = C.kernel.intake.v * (C.kernel.yKern2.v + C.kernel.yKern3.v);
-    var need = C.oil.intakeKern.v * (C.horizon.workDays.v + C.policy.safetyDays.v);
-    var minDay = model.days.reduce(function (a, r) { return r.stKern2 + r.stKern3 < a.stKern2 + a.stKern3 ? r : a; });
-    var first = model.switches.filter(function (s) { return s.to === 'kern'; })[0];
-    var items = [
-      { c: 'kern', l: 'Приход ядра 2 кат.', v: fmt1(perDay), u: 'т/сут', d: fmt(C.kernel.intake.v) + ' т × ' + (C.kernel.yKern2.v * 100).toFixed(0) + '%' },
-      { c: 'kern', l: 'Нужно на месяц работы', v: fmt(need), u: 'т', d: fmt(C.oil.intakeKern.v) + ' т/сут × ' + fmt(C.horizon.workDays.v + C.policy.safetyDays.v) + ' дн' },
-      { c: 'kern', l: 'Минимум ядра за сезон', v: fmt(minDay.stKern2 + minDay.stKern3), u: 'т', d: minDay.date },
-      { c: 'kern', l: 'Первый переход на семечку', v: first ? first.date.slice(0, 5) : '—', u: '', d: first ? first.date : 'не наступает' },
-      { c: 'raps', l: 'Закуп рапса за сезон', v: fmt(k.rapeBuy), u: 'т', d: 'семечки ' + fmt(k.seedBuy) + ' т' },
-      { c: k.overPeak > 0.5 ? 'bad' : 'ok', l: 'Пик на складах', v: fmt(k.peakStock), u: 'т', d: 'вместимость ' + fmt(model.capTotal) + ' т' },
-      { c: k.overPeak > 0.5 ? 'bad' : 'ok', l: 'Не хватает места', v: fmt(k.overPeak), u: 'т', d: k.overDays + ' сут за сезон' },
-      { c: k.idle > 0.5 ? 'bad' : 'ok', l: 'Простой завода масла', v: fmt(k.idle), u: 'т', d: 'недоработано сырья' },
-      { c: 'raps', l: 'Прибыль лежит в остатках', v: (k.endValue / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }), u: 'млн ₽',
-        d: (k.profit > 0 ? (k.endValue / k.profit * 100).toFixed(0) : '0') + ' % фин. результата' },
-      { c: 'raps', l: 'Обрушка остановлена', v: fmt(C.policy.kernStop.v), u: 'сут',
-        d: 'непереработано ' + fmt(C.policy.kernStop.v * C.kernel.intake.v) + ' т семечки' },
-      { c: 'raps', l: 'Ядро 2 кат. на сторону', v: fmt(k.sellKern2), u: 'т',
-        d: C.policy.sellKern2.v ? 'по ' + fmt(C.prices.kern2.v) + ' ₽/т' : 'продажа выключена' }
-    ];
-    $('peakbar').innerHTML = items.map(function (i) {
-      return '<div class="pb ' + i.c + '"><div class="l">' + i.l + '</div>' +
-        '<div class="v">' + i.v + (i.u ? '<small>' + i.u + '</small>' : '') + '</div>' +
-        '<div class="d">' + i.d + '</div></div>';
-    }).join('');
-  }
+  /* ---------------- KPI-полоса убрана: сигналы живут внутри своих блоков ---------------- */
+  function renderKpi() { }
 
   /* ---------------- цена ядра 2 кат.: чувствительность ---------------- */
   function variantProfit(over) {
@@ -261,48 +246,14 @@
   var K2_RATES = [1500, 2500, 3500, 5000, 6500];
   var K2_PRICES = [0, -0.1, -0.2, -0.3];
   function renderK2() {
-    var P0 = CONFIG.prices.kern2.v, rate0 = CONFIG.oil.procCost.v;
-    var mln = function (n) { return (n / 1e6).toLocaleString('ru-RU', { maximumFractionDigits: 1 }); };
-    /* база сравнения — остановка обрушки; от цены П/Ф не зависит, от ставки зависит */
-    var base = {}, grid = {};
-    K2_RATES.forEach(function (rt) {
-      base[rt] = variantProfit({ 'oil.procCost': rt, 'policy.sellKern2': 0, 'policy.rapeOnly': 0 });
-      grid[rt] = K2_PRICES.map(function (k) {
-        return variantProfit({ 'oil.procCost': rt, 'policy.kernStop': 0, 'policy.sellKern2': 1,
-          'policy.rapeOnly': 0, 'prices.kern2': P0 * (1 + k) }) - base[rt];
-      });
-    });
-    var flip = flipRate(), parity = parityPrice();
-    var head = '<tr><th>Цена П/Ф</th><th>₽/т</th>' +
-      K2_RATES.map(function (rt) {
-        return '<th' + (rt === rate0 ? ' style="color:var(--kern-d)"' : '') + '>' + fmt(rt) + (rt === rate0 ? ' ●' : '') + '</th>';
-      }).join('') + '</tr>';
-    var body = K2_PRICES.map(function (k, i) {
-      return '<tr' + (k === 0 ? ' class="base"' : '') + '><td>' + (k === 0 ? 'базовая' : (k * 100).toFixed(0) + ' %') +
-        '</td><td>' + fmt(P0 * (1 + k)) + '</td>' +
-        K2_RATES.map(function (rt) {
-          var d = grid[rt][i];
-          return '<td class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '+' : '') + mln(d) + '</td>';
-        }).join('') + '</tr>';
-    }).join('');
-    var parityRow = '<tr class="par"><td colspan="2">паритетная цена П/Ф</td>' +
-      K2_RATES.map(function (rt) { return '<td>' + fmt(parityAt(rt)) + '</td>'; }).join('') + '</tr>';
-
+    var P0 = CONFIG.prices.kern2.v, parity = parityPrice();
     $('k2card').innerHTML =
-      '<div class="k2head"><h3>Цена ядра 2 кат. (П/Ф)</h3><span class="k2warn">не подтверждена</span>' +
-      '<span style="font-size:12px;color:var(--ink2)">лист «Ядро »!B2 — другой сценарий выходов, ' +
-      'в листе «Ядро+масло» цена П/Ф пуста</span></div>' +
-      '<div class="k2body"><div>' +
-      '<div class="k2price"><input type="number" id="k2price" step="500" value="' + Math.round(P0 * 100) / 100 + '"><small>₽/т с НДС</small></div>' +
-      '<div class="k2note">При текущей ставке второго передела <b>' + fmt(rate0) + ' ₽/т</b> тонну ядра выгоднее ' +
-      (P0 > parity ? '<b>продать</b>' : '<b>отжать</b>') + ': паритет <b>' + fmt(parity) + ' ₽/т с НДС</b>.<br>' +
-      'Обрушка в это сравнение не входит — она понесена в обеих ветках.<br><br>' +
-      '<b>Точка разворота по ставке: ' + fmt(flip) + ' ₽/т.</b> Ниже неё выгоднее отжимать, выше — продавать.</div>' +
-      '</div><div>' +
-      '<div class="k2sub">Выгода продажи излишка против остановки обрушки, млн ₽ · строки — цена П/Ф, столбцы — ставка второго передела</div>' +
-      '<table class="k2tbl"><thead>' + head + '</thead><tbody>' + body + parityRow + '</tbody></table>' +
-      '<div class="k2note">Зелёное — продавать выгоднее, красное — отжимать. ● отмечена действующая ставка.</div>' +
-      '</div></div>';
+      '<div class="k2row"><span class="k2lab">Цена ядра 2 кат. (П/Ф)</span>' +
+      '<span class="k2price"><input type="number" id="k2price" step="500" value="' + Math.round(P0 * 100) / 100 + '"><small>₽/т с НДС</small></span>' +
+      '<span class="k2warn">не подтверждена</span>' +
+      '<span class="k2par">паритет <b>' + fmt(parity) + ' ₽/т</b> при ставке ' + fmt(CONFIG.oil.procCost.v) +
+      ' ₽/т — выгоднее <b>' + (P0 > parity ? 'продать' : 'отжать') + '</b></span>' +
+      '<span class="k2hint">сетка «цена × ставка» — в выгрузке, лист «Сценарный анализ»</span></div>';
     $('k2price').addEventListener('change', function () {
       var n = parseFloat(this.value); if (!isFinite(n) || n < 0) { this.value = CONFIG.prices.kern2.v; return; }
       CONFIG.prices.kern2.v = n; syncRail(); recalc();
@@ -704,8 +655,87 @@
       { name: 'Оборотный капитал', widths: [26, 9].concat(model.months.map(function () { return 12; }), [13]), rows: cap }
     ];
   }
+  /* ---------------- сценарный анализ: только в отчёт, на экране его нет ---------------- */
+  var STRATEGIES = [
+    { n: '1. Остановка обрушки', o: {} },
+    { n: '2. Продажа излишка', o: { 'policy.kernStop': 0, 'policy.sellKern2': 1 } },
+    { n: '3. Только рапс', o: { 'policy.kernStop': 0, 'policy.rapeOnly': 1, 'policy.rapeBuffer': 0 } },
+    { n: '4. Маслоцех 60,3 — только ядро', o: { 'oil.intakeKern': 60.3, 'policy.kernStop': 0, 'policy.sellKern2': 1, 'policy.rapeBuffer': 0 } }
+  ];
+  function kpiOf(over) {
+    var c = JSON.parse(JSON.stringify(CONFIG));
+    Object.keys(over).forEach(function (path) { var a = path.split('.'); c[a[0]][a[1]].v = over[path]; });
+    try { return calcModel(c).kpi; } catch (e) { return null; }
+  }
+  function mix(a, b) { var o = {}; Object.keys(a).forEach(function (k) { o[k] = a[k]; }); Object.keys(b).forEach(function (k) { o[k] = b[k]; }); return o; }
+  function analyticsSheet() {
+    var r2 = function (x) { return Math.round(x * 100) / 100; }, mlnR = function (x) { return Math.round(x / 1e5) / 10; };
+    var C = CONFIG, vg = C.finance.vatGoods.v, vs = C.finance.vatService.v;
+    var rows = [];
+    var head = function (t) { rows.push([]); rows.push([{ v: t, b: true }]); };
+
+    head('ПАРИТЕТ: отжать или продать тонну ядра 2 кат. (обрушка в сравнение не входит)');
+    rows.push([{ v: 'Ставка 2-го передела, ₽/т', b: true }, { v: 'Отжать, ₽/т', b: true },
+      { v: 'Продать, ₽/т', b: true }, { v: 'Выгоднее', b: true }, { v: 'Паритетная цена П/Ф, ₽/т', b: true }]);
+    var sellNet = C.prices.kern2.v / vg - C.freight.kern1.v / vs;
+    K2_RATES.forEach(function (rt) {
+      var press = C.oil.kernOil.v * C.prices.sunOil.v / vg + C.oil.kernMeal.v * C.prices.sunMeal.v / vg -
+        rt / vs - (C.oil.kernOil.v * C.freight.oil.v + C.oil.kernMeal.v * C.freight.meal.v) / vs;
+      rows.push([rt, r2(press), r2(sellNet), press > sellNet ? 'отжать' : 'продать', r2(parityAt(rt))]);
+    });
+    rows.push(['Точка разворота по ставке, ₽/т', r2(flipRate())]);
+
+    head('ЧЕТЫРЕ СТРАТЕГИИ × СТАВКА 2-го ПЕРЕДЕЛА, фин. результат млн ₽');
+    rows.push([{ v: 'Вариант', b: true }].concat([2500, 5000, 6500].map(function (x) { return { v: x, b: true }; }), [{ v: 'Разброс', b: true }]));
+    STRATEGIES.forEach(function (st) {
+      var v = [2500, 5000, 6500].map(function (rt) { var k = kpiOf(mix(st.o, { 'oil.procCost': rt })); return k ? mlnR(k.profit) : null; });
+      rows.push([st.n].concat(v, [r2(Math.max.apply(null, v) - Math.min.apply(null, v))]));
+    });
+
+    head('СЕЗОННЫЕ ЛИМИТЫ (вариант «только рапс»)');
+    rows.push([{ v: 'Лимит закупа рапса, т', b: true }, { v: 'Закуп, т', b: true }, { v: 'Простой, т', b: true }, { v: 'Фин. результат, млн ₽', b: true }]);
+    [0, 20000, 15000, 10000].forEach(function (L) {
+      var k = kpiOf(mix(STRATEGIES[2].o, { 'policy.rapeLimit': L }));
+      rows.push([L || 'без ограничения', Math.round(k.rapeBuy), Math.round(k.idle), mlnR(k.profit)]);
+    });
+    rows.push([{ v: 'Лимит продажи ядра 2 кат., т', b: true }, { v: 'Продано, т', b: true }, { v: 'Остаток ядра, т', b: true }, { v: 'Фин. результат, млн ₽', b: true }]);
+    [0, 12000, 8000, 4000].forEach(function (L) {
+      var k = kpiOf(mix(STRATEGIES[2].o, { 'policy.kern2Limit': L }));
+      rows.push([L || 'без ограничения', Math.round(k.sellKern2), Math.round(k.endKern2 + k.endKern3), mlnR(k.profit)]);
+    });
+
+    head('ЧУВСТВИТЕЛЬНОСТЬ ПО РАПСУ, фин. результат млн ₽');
+    [[2, 'вариант 3 «только рапс»'], [0, 'вариант 1 «остановка обрушки»']].forEach(function (pair) {
+      rows.push([{ v: pair[1], b: true }, { v: 'масло −10 %', b: true }, { v: 'базовая', b: true }, { v: 'масло +10 %', b: true }]);
+      [28000, 30000, 33000, 36000].forEach(function (buy) {
+        rows.push(['закуп рапса ' + buy].concat([-0.1, 0, 0.1].map(function (d) {
+          var k = kpiOf(mix(STRATEGIES[pair[0]].o, { 'prices.buyRape': buy, 'priceParts.rapeOilCny': C.priceParts.rapeOilCny.v * (1 + d) }));
+          return k ? mlnR(k.profit) : null;
+        })));
+      });
+    });
+
+    head('РАНЖИРОВАНИЕ ПРИ ПОНИЖАЮЩЕМ КОЭФФИЦИЕНТЕ, млн ₽');
+    rows.push([{ v: 'Вариант', b: true }, { v: 'коэффициент выключен', b: true }, { v: 'коэффициент включён', b: true }]);
+    STRATEGIES.forEach(function (st) {
+      rows.push([st.n, mlnR(kpiOf(mix(st.o, { 'priceParts.coefOn': 0 })).profit), mlnR(kpiOf(mix(st.o, { 'priceParts.coefOn': 1 })).profit)]);
+    });
+
+    head('СЕТКА: выгода продажи излишка против остановки обрушки, млн ₽');
+    rows.push([{ v: 'Цена П/Ф, ₽/т', b: true }].concat(K2_RATES.map(function (rt) { return { v: 'ставка ' + rt, b: true }; })));
+    K2_PRICES.forEach(function (k) {
+      var price = C.prices.kern2.v * (1 + k);
+      rows.push([r2(price)].concat(K2_RATES.map(function (rt) {
+        var a = kpiOf({ 'oil.procCost': rt, 'policy.sellKern2': 0, 'policy.rapeOnly': 0 });
+        var b = kpiOf({ 'oil.procCost': rt, 'policy.kernStop': 0, 'policy.sellKern2': 1, 'policy.rapeOnly': 0, 'prices.kern2': price });
+        return mlnR(b.profit - a.profit);
+      })));
+    });
+    return { name: 'Сценарный анализ', widths: [34, 16, 16, 16, 16, 16], rows: rows };
+  }
+
   function doExportBdr() {
-    XLSXLite.download('Ядро_Масло_БДР.xlsx', bdrSheets());
+    XLSXLite.download('Ядро_Масло_БДР.xlsx', bdrSheets().concat([analyticsSheet()]));
   }
 
   function doExport() {
@@ -730,7 +760,7 @@
     var parSheet = { name: 'Параметры', widths: [22, 38, 14, 8, 52], rows: pa };
 
     XLSXLite.download('Ядро_Масло_' + (scope === 'all' ? 'сезон' : model.months[+scope].label) + '.xlsx',
-      bdrSheets().concat([daySheet, parSheet]));
+      bdrSheets().concat([daySheet, parSheet, analyticsSheet()]));
   }
 
   function renderFoot() {
