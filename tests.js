@@ -13,7 +13,7 @@ var BASELINE = {
   overDays: 0,         // суток с превышением вместимости
   overPeak: 0,         // максимум сверх вместимости, т
   minKern: 0,          // минимальный остаток ядра за сезон, т (0 — сезон закрывается в ноль)
-  kernMonths: 5,       // месяцев на семечке
+  kernMonths: 5,       // месяцев на ядре 2 кат.
   rapeMonths: 5        // месяцев на рапсе
 };
 var results = [];
@@ -131,7 +131,7 @@ var C = CONFIG, cap = m.capTotal;
 
 /* --- 7. Правило переключения и страховой запас --- */
 (function () {
-  var pattern = function (r) { return r.months.map(function (x) { return x.crop === 'kern' ? 'С' : 'Р'; }).join(''); };
+  var pattern = function (r) { return r.months.map(function (x) { return x.crop === 'kern' ? 'Я' : 'Р'; }).join(''); };
   var runs = [0, 3, 5].map(function (sd) {
     var c = clone(CONFIG); c.policy.safetyDays.v = sd;
     var r = calcModel(c);
@@ -140,31 +140,31 @@ var C = CONFIG, cap = m.capTotal;
   var uniq = {}; runs.forEach(function (r) { uniq[r.p] = 1; });
   check('7', 'Страховой запас сдвигает календарь работы завода', Object.keys(uniq).length > 1,
     'пульт, поле «Страховой запас ядра»',
-    runs.map(function (r) { return r.sd + ' дн → ' + r.p + ' (семечка ' + r.kern + ' мес)'; }).join('; ') +
-    ' | С — семечка, Р — рапс');
+    runs.map(function (r) { return r.sd + ' дн → ' + r.p + ' (ядро 2 кат. ' + r.kern + ' мес)'; }).join('; ') +
+    ' | Я — ядро 2 кат., Р — рапс');
 
   var base = calcModel(CONFIG);
   check('7б', 'Календарь совпадает с эталоном по числу месяцев',
     base.kpi.kernMonths === BASELINE.kernMonths && base.kpi.rapeMonths === BASELINE.rapeMonths,
     'пульт, календарь работы завода масла',
-    'семечка ' + base.kpi.kernMonths + ' / рапс ' + base.kpi.rapeMonths +
+    'ядро 2 кат. ' + base.kpi.kernMonths + ' / рапс ' + base.kpi.rapeMonths +
     ' (эталон ' + BASELINE.kernMonths + ' / ' + BASELINE.rapeMonths + ')');
 
-  /* баланс масс: больше, чем позволяет приход ядра, месяцев семечки быть не может */
+  /* баланс масс: больше, чем позволяет приход ядра, месяцев на ядре 2 кат. быть не может */
   var K = CONFIG.kernel, H = CONFIG.horizon;
   var kernSeason = K.intake.v * (K.yKern2.v + K.yKern3.v) * H.workDays.v * H.months.v;
   var monthNorm = CONFIG.oil.intakeKern.v * H.workDays.v;
   var ceiling = Math.floor(kernSeason / monthNorm);
-  check('7в', 'Месяцев на семечке не больше, чем позволяет приход ядра', base.kpi.kernMonths <= ceiling,
+  check('7в', 'Месяцев на ядре 2 кат. не больше, чем позволяет приход ядра', base.kpi.kernMonths <= ceiling,
     'баланс масс: приход ядра ÷ месячная норма маслоцеха',
     'ядра за сезон ' + f(kernSeason) + ' т ÷ ' + f(monthNorm) + ' т = ' +
     (kernSeason / monthNorm).toFixed(2) + ' → потолок ' + ceiling + ' мес, в модели ' + base.kpi.kernMonths);
 
   var badIdle = base.months.filter(function (x) { return x.crop === 'kern' && x.idle > EPS; });
-  check('7г', 'В месяцы семечки маслоцех обеспечен каждые сутки', badIdle.length === 0,
+  check('7г', 'В месяцы на ядре 2 кат. маслоцех обеспечен каждые сутки', badIdle.length === 0,
     'engine.js, посуточная проверка перед запуском месяца',
     badIdle.length ? 'простой в месяцах: ' + badIdle.map(function (x) { return x.label; }).join(', ')
-      : 'простоя нет ни в одном из ' + base.kpi.kernMonths + ' месяцев семечки');
+      : 'простоя нет ни в одном из ' + base.kpi.kernMonths + ' месяцев на ядре 2 кат.');
 })();
 
 /* --- 8. Числа вне CONFIG --- */
@@ -325,7 +325,7 @@ var C = CONFIG, cap = m.capTotal;
     Math.abs(k.endKern2) < 0.01 && Math.abs(k.endRape) < 0.01;
   check('16', 'Режим «только рапс»: ядро не жмут, продают целиком, остаток ноль', ok,
     'пульт, поле «Только рапс: ядро 2 кат. целиком на сторону»',
-    'месяцев на семечке ' + k.kernMonths + ', ядра в маслоцех ' + used.toFixed(2) + ' т, продано ' +
+    'месяцев на ядре 2 кат. ' + k.kernMonths + ', ядра в маслоцех ' + used.toFixed(2) + ' т, продано ' +
     f(k.sellKern2) + ' из ' + f(kernIn) + ' т, остаток ' + k.endKern2.toFixed(3) + ' т');
 })();
 

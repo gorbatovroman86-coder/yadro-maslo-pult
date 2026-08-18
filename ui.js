@@ -189,10 +189,10 @@
     $('calendar').innerHTML = model.months.map(function (m) {
       var t = 'На 1-е число: остаток ' + fmt(m.stockAtStart) + ' т + приход за месяц ' + fmt(m.planned) +
         ' т = доступно ' + fmt(m.available) + ' т; нужно ' + fmt(m.need) + ' т → ' +
-        (m.crop === 'kern' ? 'семечка' : 'рапс') +
+        (m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') +
         (m.failDay ? '; посуточно не хватило на ' + m.failDay + '-е сутки' : '');
       return '<div class="mchip ' + (m.crop === 'kern' ? 'kern' : 'raps') + (swMonths[m.idx] && m.idx > 0 ? ' sw' : '') + '" title="' + esc(t) + '">' +
-        '<div class="mn">' + m.label + '</div><div class="mt">' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</div></div>';
+        '<div class="mn">' + m.label + '</div><div class="mt">' + (m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') + '</div></div>';
     }).join('');
     var sw = model.switches.filter(function (s) { return s.from; });
     var cap = CONFIG.oil.intakeKern.v, wd = CONFIG.horizon.workDays.v, sd = CONFIG.policy.safetyDays.v;
@@ -200,7 +200,7 @@
       '<span>Потребность завода: <b>' + fmt(cap) + ' т/сут × ' + fmt(wd) + ' дн = ' + fmt(cap * wd) + ' т</b></span>' +
       (sd > 0 ? '<span>Порог запуска: <b>' + fmt(cap * wd) + ' т + страховой запас ' + fmt(sd) + ' дн = ' +
         fmt(cap * (wd + sd)) + ' т</b></span>' : '') +
-      '<span>Месяцев на семечке: <b>' + model.kpi.kernMonths + '</b></span>' +
+      '<span>Месяцев на ядре 2 кат.: <b>' + model.kpi.kernMonths + '</b></span>' +
       '<span>на рапсе: <b>' + model.kpi.rapeMonths + '</b></span>' +
       '<span>Смен культуры: <b>' + sw.length + '</b></span>' +
       '<span>Даты смен: <b>' + (sw.length ? sw.map(function (s) { return s.date; }).join(' · ') : '—') + '</b></span>';
@@ -352,7 +352,7 @@
     svg.onmousemove = function (ev) {
       var i = toIdx(ev), r = model.days[i], b = wrap.getBoundingClientRect();
       tip.style.opacity = 1;
-      tip.innerHTML = '<b>' + r.date + '</b> · ' + (r.crop === 'kern' ? 'семечка' : 'рапс') + '<br>' +
+      tip.innerHTML = '<b>' + r.date + '</b> · ' + (r.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') + '<br>' +
         'пик суток — ядро: <b>' + fmt(r.pkKern) + ' т</b><br>пик суток — рапс: <b>' + fmt(r.pkRape) + ' т</b><br>' +
         'всего в пике: <b>' + fmt(r.pkTotal) + ' т</b><br>остаток на конец: <b>' + fmt(r.stTotal) + ' т</b>' +
         (r.over > 0.5 ? '<br><span class="tw">сверх вместимости: ' + fmt(r.over) + ' т</span>' : '');
@@ -407,9 +407,9 @@
     var head = '<thead><tr>' +
       '<th rowspan="2">Месяц</th><th rowspan="2">Культура</th>' +
       '<th colspan="2">Приход сырья</th><th colspan="3">Завод ядра выдал</th>' +
-      '<th colspan="3">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th></tr>' +
+      '<th colspan="2">Завод масла переработал</th><th colspan="4">Остаток на конец месяца</th></tr>' +
       '<tr><th>семечка</th><th>рапс</th><th>ядро 1 кат.</th><th>ядро 2 кат.</th><th>лузга</th>' +
-      '<th>из ядра</th><th>из рапса</th><th>простой</th>' +
+      '<th>из ядра</th><th>из рапса</th>' +
       '<th>ядро 2 кат.</th><th>рапс</th><th>всего</th><th>сверх</th></tr></thead>';
     var t = { seedBuy: 0, rapeBuy: 0, kern1: 0, kern2: 0, husk: 0, fk: 0, fr: 0, idle: 0 };
     var body = model.months.map(function (m) {
@@ -417,17 +417,16 @@
       t.seedBuy += m.seedBuy; t.rapeBuy += m.rapeBuy; t.kern1 += m.kern1; t.kern2 += m.kern2;
       t.husk += m.husk; t.fk += m.oilFromKern; t.fr += m.oilFromRape; t.idle += m.idle;
       return '<tr class="' + (m.crop === 'kern' ? 'k' : 'r') + '"><td>' + m.label + '</td>' +
-        '<td style="text-align:left">' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</td>' +
+        '<td style="text-align:left">' + (m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') + '</td>' +
         '<td class="g1">' + fmt(m.seedBuy) + '</td><td class="g1">' + fmt(m.rapeBuy) + '</td>' +
         '<td class="g2">' + fmt(m.kern1) + '</td><td class="g2">' + fmt(m.kern2) + '</td><td class="g2">' + fmt(m.husk) + '</td>' +
         '<td class="g3">' + fmt(m.oilFromKern) + '</td><td class="g3">' + fmt(m.oilFromRape) + '</td>' +
-        '<td class="g3' + (m.idle > 0.5 ? ' bad' : '') + '">' + fmt(m.idle) + '</td>' +
         '<td>' + fmt(L.stKern2) + '</td><td>' + fmt(L.stRape) + '</td><td>' + fmt(L.stTotal) + '</td>' +
         '<td class="' + (m.overPeak > 0.5 ? 'bad' : '') + '">' + (m.overPeak > 0.5 ? fmt(m.overPeak) : '—') + '</td></tr>';
     }).join('');
     var foot = '<tfoot><tr><td>ИТОГО</td><td></td><td>' + fmt(t.seedBuy) + '</td><td>' + fmt(t.rapeBuy) + '</td>' +
       '<td>' + fmt(t.kern1) + '</td><td>' + fmt(t.kern2) + '</td><td>' + fmt(t.husk) + '</td>' +
-      '<td>' + fmt(t.fk) + '</td><td>' + fmt(t.fr) + '</td><td>' + fmt(t.idle) + '</td>' +
+      '<td>' + fmt(t.fk) + '</td><td>' + fmt(t.fr) + '</td>' +
       '<td colspan="4"></td></tr></tfoot>';
     $('flowTbl').innerHTML = head + '<tbody>' + body + '</tbody>' + foot;
   }
@@ -462,7 +461,7 @@
       var L = model.days[(m.idx + 1) * CONFIG.horizon.workDays.v - 1];
       cumK += m.kern2; cumR += m.rapeBuy;
       return '<div class="mo ' + (m.crop === 'kern' ? 'k' : 'r') + '">' +
-        '<div class="mh">' + m.label + '<small>' + (m.crop === 'kern' ? 'семечка' : 'рапс') + '</small></div>' +
+        '<div class="mh">' + m.label + '<small>' + (m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') + '</small></div>' +
         '<div class="mr"><span>Ядро 2 кат. пришло</span><b>' + fmt(m.kern2) + '</b></div>' +
         '<div class="mr"><span>Ядро ушло на масло</span><b>' + fmt(m.oilFromKern) + '</b></div>' +
         '<div class="mr"><span>Рапс закуплен</span><b>' + fmt(m.rapeBuy) + '</b></div>' +
@@ -479,7 +478,7 @@
   /* ---------------- таблица по дням ---------------- */
   var DAILY_COLS = [
     ['Дата', function (r) { return r.date; }, ''],
-    ['Культ.', function (r) { return r.crop === 'kern' ? 'семечка' : 'рапс'; }, 'dim'],
+    ['Культ.', function (r) { return r.crop === 'kern' ? 'ядро 2 кат.' : 'рапс'; }, 'dim'],
     ['Семечка', function (r) { return fmt(r.seedBuy); }, ''],
     ['Рапс', function (r) { return fmt(r.rapeBuy); }, ''],
     ['Ядро 1 кат.', function (r) { return fmt(r.kern1); }, ''],
@@ -592,7 +591,7 @@
       '<tr><td style="font-weight:600">Культура месяца</td>' +
       model.months.map(function (m) {
         return '<td style="color:' + (m.crop === 'kern' ? 'var(--kern-d)' : 'var(--raps-d)') + ';font-weight:600">' +
-          (m.crop === 'kern' ? 'семечка' : 'рапс') + '</td>';
+          (m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс') + '</td>';
       }).join('') + '<td></td></tr></thead><tbody>';
     BDR_ROWS.forEach(function (row) {
       html += '<tr class="' + row.c + '"><td>' + esc(row.l) + '</td>' +
@@ -619,7 +618,7 @@
   function bdrSheets() {
     var r2 = function (x) { return Math.round(x * 100) / 100; };
     var bdr = [['БДР'].concat(model.months.map(function (m) { return m.label; }), ['ИТОГО'])];
-    bdr.push(['Культура месяца'].concat(model.months.map(function (m) { return m.crop === 'kern' ? 'семечка' : 'рапс'; }), ['']));
+    bdr.push(['Культура месяца'].concat(model.months.map(function (m) { return m.crop === 'kern' ? 'ядро 2 кат.' : 'рапс'; }), ['']));
     BDR_ROWS.forEach(function (row) {
       var bold = row.c === 'sum' || row.c === 'res';
       var label = (row.c === 'sub' ? '   ' : '') + row.l;
@@ -732,7 +731,7 @@
     /* лист по дням */
     var aoa = [DAILY_COLS.map(function (c) { return { v: c[0], b: true }; })];
     rows.forEach(function (r) {
-      aoa.push([r.date, r.crop === 'kern' ? 'семечка' : 'рапс',
+      aoa.push([r.date, r.crop === 'kern' ? 'ядро 2 кат.' : 'рапс',
         r2(r.seedBuy), r2(r.rapeBuy), r2(r.kern1), r2(r.kern2), r2(r.husk),
         r2(r.oilIntake), r2(r.oilSun + r.oilRape), r2(r.mealSun + r.mealRape), r2(r.idle),
         r2(r.stKern2), r2(r.stRape), r2(r.stTotal), r2(r.pkTotal),
