@@ -107,19 +107,31 @@
     try {
       next = calcModel(CONFIG);
     } catch (err) {
-      $('cfgErr').style.display = '';
-      $('cfgErr').innerHTML = '<b>⚠ Так считать нельзя:</b>\n' + esc(err.message) + '\nЗначение возвращено к последнему рабочему.';
+      showErr('Так считать нельзя', err.message + '\nЗначение возвращено к последнему рабочему.');
       if (lastGood) { restore(lastGood); syncRail(); }
       return;
     }
-    $('cfgErr').style.display = 'none';
+    hideErr();
     lastGood = snapshot();
     model = next;
     if (curDay > model.days.length - 1) curDay = model.days.length - 1;
-    renderTz(); renderCalendar(); renderWarn(); renderKpi(); renderChart();
-    renderDaySelector(); renderDay(); renderFlow(); renderFinance();
-    renderMonths(); renderDaily(); renderExport(); renderFoot();
+    try {
+      renderTz(); renderCalendar(); renderWarn(); renderKpi(); renderChart();
+      renderDaySelector(); renderDay(); renderFlow(); renderFinance();
+      renderMonths(); renderDaily(); renderExport(); renderFoot();
+    } catch (err) {
+      showErr('Не удалось отрисовать пульт', err.message +
+        '\nОбычно это старая версия страницы в кэше браузера. Обновите страницу с очисткой кэша: ' +
+        'Cmd+Shift+R (Mac) или Ctrl+F5 (Windows).');
+    }
   }
+  function showErr(head, body) {
+    var el = $('cfgErr');
+    if (!el) { alert(head + '\n' + body); return; }
+    el.style.display = '';
+    el.innerHTML = '<b>⚠ ' + esc(head) + ':</b>\n' + esc(body);
+  }
+  function hideErr() { var el = $('cfgErr'); if (el) el.style.display = 'none'; }
 
   /* ---------------- страховой запас и правило запуска ---------------- */
   function renderTz() {
@@ -578,5 +590,15 @@
     window.addEventListener('resize', function () { renderChart(); });
     recalc();
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+  function safeInit() {
+    try { init(); }
+    catch (err) {
+      var el = document.getElementById('cfgErr');
+      var msg = 'Пульт не запустился: ' + err.message +
+        '\nЧаще всего это старая версия страницы в кэше браузера. Обновите с очисткой кэша: ' +
+        'Cmd+Shift+R (Mac) или Ctrl+F5 (Windows).';
+      if (el) { el.style.display = ''; el.textContent = '⚠ ' + msg; } else { alert(msg); }
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', safeInit); else safeInit();
 })();
